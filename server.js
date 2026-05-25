@@ -667,52 +667,65 @@ app.get('/api/receiver/stats', authMiddleware, async (req, res) => {
 });
 
 // ============ AI BOT ROUTE ============
-const GOOGLE_AI_API_KEY = process.env.GOOGLE_AI_API_KEY;
+// ============ AI BOT ROUTE ============
+const GOOGLE_AI_API_KEY = process.env.GOOGLE_AI_API_KEY || 'AIzaSyAgzX8szyUGq2TxCoUgAJx7U-z4FSgiLP8';
 
 app.post('/api/bot/chat', async (req, res) => {
     try {
         const { message, context, language } = req.body;
         
-        const quickLower = message.toLowerCase();
-        if (quickLower.includes('price') || quickLower.includes('cost') || quickLower.includes('how much')) {
-            return res.json({ reply: "💰 Our pricing:\n• Banner Ads: $100/month\n• Featured Ads: $500/month\n• Sponsored Ads: $1,000/month\n• Delivery: $10 base + $0.50/km\n\nFor custom packages, contact us on WhatsApp: +255796323348" });
-        }
+        // Tumia Google Gemini API
+        const response = await axios.post(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GOOGLE_AI_API_KEY}`,
+            {
+                contents: [{
+                    parts: [{
+                        text: `You are a professional business assistant for City Find platform.
+                        
+Company Information:
+- Name: City Find
+- Email: citytechuk@gmail.com
+- Phone/WhatsApp: +255796323348
+- Bank: NMB Bank, Account: 5161480052318274, Name: City Tech Holdings
+- Services: Business Advertising ($100-$1000/month), Delivery Tracking, Quality Checks, Escrow Payments
+
+Instructions:
+- Be helpful, professional, and concise
+- Respond in ${language === 'sw' ? 'Swahili' : 'English'}
+- If user asks about prices, give exact amounts
+- If user wants to advertise, guide them to register as Company
+- If user wants to track order, ask for order number
+
+User question: ${message}
+
+Respond helpfully and naturally.`
+                    }]
+                }]
+            },
+            { timeout: 15000 }
+        );
         
-        if (quickLower.includes('contact') || quickLower.includes('support') || quickLower.includes('help')) {
-            return res.json({ reply: "📞 Contact us:\n• Email: citytechuk@gmail.com\n• Phone/WhatsApp: +255796323348\n• Website: https://cityfind.zass.website\n\nWe're available 24/7!" });
-        }
+        const botReply = response.data.candidates[0].content.parts[0].text;
+        res.json({ reply: botReply });
         
-        if (quickLower.includes('bank') || quickLower.includes('payment') || quickLower.includes('pay')) {
-            return res.json({ reply: "🏦 Payment Details:\nBank: NMB Bank Tanzania\nAccount Name: City Tech Holdings\nAccount Number: 5161480052318274\nSWIFT Code: NMBCTZTZ\n\nAfter payment, send confirmation to +255796323348" });
-        }
-        
-        if (quickLower.includes('track') || quickLower.includes('order') || quickLower.match(/ord\d+/i)) {
-            return res.json({ reply: "📦 To track your order:\n1. Go to our website\n2. Click 'Track' section\n3. Enter your order number (e.g., ORD1234567890)\n\nYou'll see real-time location and status!" });
-        }
-        
-        if (GOOGLE_AI_API_KEY && GOOGLE_AI_API_KEY !== 'your_google_ai_api_key_here') {
-            try {
-                const response = await axios.post(
-                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GOOGLE_AI_API_KEY}`,
-                    {
-                        contents: [{
-                            parts: [{
-                                text: `You are a business assistant for City Find platform. Company: City Tech Holdings. Contact: +255796323348, citytechuk@gmail.com. Services: Ads, deliveries, tracking, quality checks. User question: ${message}. Respond helpfully and concisely.`
-                            }]
-                        }]
-                    },
-                    { timeout: 10000 }
-                );
-                const botReply = response.data.candidates?.[0]?.content?.parts?.[0]?.text || "I'm here to help! Please contact +255796323348 on WhatsApp for immediate assistance.";
-                return res.json({ reply: botReply });
-            } catch (aiError) {
-                console.error('AI Error:', aiError.message);
-            }
-        }
-        
-        res.json({ reply: "👋 Hello! I'm City Find AI Assistant.\n\nI can help you with:\n• Advertising your business (prices start at $100/month)\n• Tracking deliveries\n• Making payments (NMB Bank: 5161480052318274)\n• Quality checks\n• Finding products\n\nFor urgent matters, WhatsApp: +255796323348\n\nHow can I help you today?" });
     } catch (error) {
-        res.json({ reply: "I'm here to help! Please contact our support team on WhatsApp: +255796323348 or email: citytechuk@gmail.com" });
+        console.error('AI Bot Error:', error.message);
+        
+        // Fallback response ikiwa API inashindwa
+        res.json({ 
+            reply: `👋 Hello! I'm City Find AI Assistant.
+            
+I can help you with:
+• 💰 Advertising (from $100/month)
+• 📦 Tracking deliveries  
+• 💳 Payments: NMB 5161480052318274
+• ✅ Quality checks
+• 🔍 Finding products
+
+For urgent matters, WhatsApp: +255796323348
+
+How can I help you today?`
+        });
     }
 });
 
