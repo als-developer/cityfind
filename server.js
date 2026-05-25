@@ -1188,6 +1188,604 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => { for (let [userId, sockId] of connectedUsers.entries()) { if (sockId === socket.id) { connectedUsers.delete(userId); console.log(`🔌 User ${userId} disconnected`); } } console.log('🔌 Client disconnected:', socket.id); });
 });
 
+
+
+// ============ ORDER NOTIFICATIONS (Email & WhatsApp) ============
+// Send order confirmation email
+async function sendOrderEmail(userEmail, orderNumber, productName) {
+    try {
+        const transporter = nodemailer.createTransport({
+            service: 'gmail',
+            auth: {
+                user: process.env.ADMIN_EMAIL || 'citytechuk@gmail.com',
+                pass: process.env.EMAIL_PASSWORD || ''
+            }
+        });
+        
+        await transporter.sendMail({
+            from: `"City Find" <${process.env.ADMIN_EMAIL}>`,
+            to: userEmail,
+            subject: `Order Confirmation - ${orderNumber}`,
+            html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: linear-gradient(135deg, #0a0f2a, #000); color: white;">
+                    <h2 style="color: #00f2fe;">Thank you for your order! 🎉</h2>
+                    <p>Your order <strong>${orderNumber}</strong> has been created successfully.</p>
+                    <p><strong>Product:</strong> ${productName}</p>
+                    <p>Track your order: <a href="https://cityfind.zass.website/track.html" style="color: #00f2fe;">Click here</a></p>
+                    <p>Questions? WhatsApp: <strong>+255796323348</strong></p>
+                    <hr style="border-color: #00f2fe;">
+                    <p style="font-size: 12px; color: #888;">City Find - Global Business Platform</p>
+                </div>
+            `
+        });
+        console.log(`📧 Order confirmation email sent to ${userEmail}`);
+    } catch (error) {
+        console.log('Email error:', error.message);
+    }
+}
+
+// Add to order creation route (after order.save())
+// await sendOrderEmail(user.email, orderNumber, productName);
+
+// ============ INVOICE GENERATION ============
+app.get('/api/orders/:orderNumber/invoice', authMiddleware, async (req, res) => {
+    try {
+        const order = await Order.findOne({ orderNumber: req.params.orderNumber })
+            .populate('senderId receiverId', 'fullName email phone companyName');
+        
+        if (!order) return res.status(404).json({ error: 'Order not found' });
+        if (order.senderId._id.toString() !== req.user.id && req.user.role !== 'admin') {
+            return res.status(403).json({ error: 'Unauthorized' });
+        }
+        
+        const invoiceHtml = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <title>Invoice ${order.orderNumber}</title>
+                <style>
+                    body { font-family: Arial, sans-serif; background: #0a0f2a; color: white; padding: 40px; }
+                    .invoice { max-width: 800px; margin: 0 auto; background: rgba(15,25,45,0.9); border-radius: 20px; padding: 30px; border: 1px solid #00f2fe; }
+                    h1 { color: #00f2fe; }
+                    .header { text-align: center; border-bottom: 1px solid #00f2fe; padding-bottom: 20px; margin-bottom: 20px; }
+                    .row { display: flex; justify-content: space-between; margin-bottom: 10px; }
+                    .total { font-size: 24px; color: #00f2fe; text-align: right; margin-top: 20px; padding-top: 20px; border-top: 1px solid #333; }
+                </style>
+            </head>
+            <body>
+                <div class="invoice">
+                    <div class="header">
+                        <h1>CITY FIND INVOICE</h1>
+                        <p>Invoice #: ${order.orderNumber}</p>
+                        <p>Date: ${new Date(order.createdAt).toLocaleDateString()}</p>
+                    </div>
+                    <div class="row">
+                        <span><strong>From:</strong> ${order.senderId?.companyName || order.senderId?.fullName}</span>
+                        <span><strong>To:</strong> ${order.receiverId?.fullName}</span>
+                    </div>
+                    <div class="row">
+                        <span><strong>Product:</strong> ${order.productName}</span>
+                        <span><strong>Quantity:</strong> ${order.quantity}</span>
+                    </div>
+                    <div class="row">
+                        <span><strong>Delivery Fee:</strong> $${order.deliveryFee}</span>
+                        <span><strong>Status:</strong> ${order.status}</span>
+                    </div>
+                    <div class="total">
+                        Total Amount: $${order.paymentAmount || order.deliveryFee}
+                    </div>
+                    <div style="text-align: center; margin-top: 30px; font-size: 12px; color: #666;">
+                        <p>WhatsApp: +255796323348 | Email: citytechuk@gmail.com</p>
+                        <p>NMB Bank: 5161480052318274 (City Tech Holdings)</p>
+                    </div>
+                </div>
+            </body>
+            </html>
+        `;
+        
+        res.setHeader('Content-Type', 'text/html');
+        res.send(invoiceHtml);
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// ============ REFUND REQUEST SYSTEM ============
+const refundSchema = new mongoose.Schema({
+    orderId: { type: mongoose.Schema.Types.ObjectId, ref: 'Order' },
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    amount: Number,
+    reason: String,
+    status: { type: String, enum: ['pending', 'approved', 'rejected', 'completed'], default: 'pending' },
+    bankDetails: {
+        bankName: String,
+        accountNumber: String,
+        accountName: String
+    },
+    createdAt: { type: Date, default: Date.now },
+    processedAt: Date
+});
+
+const Refund = mongoose.model('Refund', refundSchema);
+
+// Request refund
+app.post('/api/refund/request', authMiddleware, async (req, res) => {
+    try {
+        const { orderId, reason, bankDetails } = req.body;
+        const order = await Order.findById(orderId);
+        if (!order) return res.status(404).json({ error: 'Order not found' });
+        
+        const existingRefund = await Refund.findOne({ orderId, userId: req.user.id });
+        if (existingRefund && existingRefund.status === 'pending') {
+            return res.status(400).json({ error: 'Refund request already pending' });
+        }
+        
+        const refund = new Refund({
+            orderId,
+            userId: req.user.id,
+            amount: order.paymentAmount || order.deliveryFee,
+            reason,
+            bankDetails
+        });
+        await refund.save();
+        
+        res.json({ success: true, message: 'Refund request submitted successfully' });
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// Admin process refund
+app.post('/api/admin/refund/process', authMiddleware, adminMiddleware, async (req, res) => {
+    try {
+        const { refundId, action } = req.body;
+        const refund = await Refund.findById(refundId).populate('userId orderId');
+        if (!refund) return res.status(404).json({ error: 'Refund not found' });
+        
+        refund.status = action === 'approve' ? 'approved' : 'rejected';
+        refund.processedAt = new Date();
+        await refund.save();
+        
+        if (action === 'approve') {
+            // Update order status
+            await Order.findByIdAndUpdate(refund.orderId._id, { paymentStatus: 'refunded', status: 'refunded' });
+            
+            // Send email notification
+            const transporter = nodemailer.createTransport({
+                service: 'gmail',
+                auth: { user: process.env.ADMIN_EMAIL, pass: process.env.EMAIL_PASSWORD }
+            });
+            
+            await transporter.sendMail({
+                from: `"City Find" <${process.env.ADMIN_EMAIL}>`,
+                to: refund.userId.email,
+                subject: `Refund Approved - Order ${refund.orderId.orderNumber}`,
+                html: `<h2>Your refund has been approved!</h2><p>Amount: $${refund.amount}</p><p>Will be processed within 3-5 business days.</p>`
+            });
+        }
+        
+        res.json({ success: true, refund });
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// Get refund status
+app.get('/api/refund/status/:orderId', authMiddleware, async (req, res) => {
+    try {
+        const refund = await Refund.findOne({ orderId: req.params.orderId, userId: req.user.id });
+        res.json(refund || { status: 'no_request' });
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// ============ PRODUCT REVIEWS WITH PHOTOS ============
+const productReviewSchema = new mongoose.Schema({
+    productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Ad' },
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    rating: { type: Number, min: 1, max: 5 },
+    title: String,
+    comment: String,
+    photos: [String],
+    verifiedPurchase: { type: Boolean, default: false },
+    helpful: { type: Number, default: 0 },
+    createdAt: { type: Date, default: Date.now }
+});
+
+const ProductReview = mongoose.model('ProductReview', productReviewSchema);
+
+app.post('/api/product/review', authMiddleware, upload.array('photos', 5), async (req, res) => {
+    try {
+        const { productId, rating, title, comment } = req.body;
+        
+        let photoUrls = [];
+        if (req.files && req.files.length > 0) {
+            if (cloudinaryConfigured) {
+                photoUrls = req.files.map(f => f.path);
+            } else {
+                photoUrls = req.files.map(f => f.buffer ? `data:${f.mimetype};base64,${f.buffer.toString('base64')}` : '');
+            }
+        }
+        
+        // Check if user purchased this product
+        const hasPurchased = await Order.findOne({ 
+            senderId: req.user.id, 
+            productName: { $regex: productId, $options: 'i' },
+            status: 'completed'
+        });
+        
+        const review = new ProductReview({
+            productId,
+            userId: req.user.id,
+            rating: parseInt(rating),
+            title,
+            comment,
+            photos: photoUrls,
+            verifiedPurchase: !!hasPurchased
+        });
+        await review.save();
+        
+        // Update product rating
+        const avgRating = await ProductReview.aggregate([
+            { $match: { productId: productId } },
+            { $group: { _id: null, avg: { $avg: '$rating' } } }
+        ]);
+        
+        await Ad.findByIdAndUpdate(productId, { rating: avgRating[0]?.avg || rating });
+        
+        res.json({ success: true, review });
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+app.get('/api/product/:productId/reviews', async (req, res) => {
+    try {
+        const reviews = await ProductReview.find({ productId: req.params.productId })
+            .populate('userId', 'fullName rating')
+            .sort({ createdAt: -1 });
+        res.json(reviews);
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// ============ FAVORITE ADS (Wishlist Enhancement) ============
+app.post('/api/favorites/toggle', authMiddleware, async (req, res) => {
+    try {
+        const { adId } = req.body;
+        const user = await User.findById(req.user.id);
+        if (!user.savedAds) user.savedAds = [];
+        
+        const index = user.savedAds.indexOf(adId);
+        if (index === -1) {
+            user.savedAds.push(adId);
+            await user.save();
+            res.json({ success: true, favorited: true });
+        } else {
+            user.savedAds.splice(index, 1);
+            await user.save();
+            res.json({ success: true, favorited: false });
+        }
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+app.get('/api/favorites', authMiddleware, async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id).populate('savedAds');
+        res.json(user.savedAds || []);
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// ============ NEARBY BUSINESSES (Geolocation) ============
+app.get('/api/businesses/nearby', async (req, res) => {
+    try {
+        const { lat, lng, radius = 10 } = req.query;
+        
+        // Find businesses within radius
+        const businesses = await User.find({
+            role: 'company',
+            'location.lat': { $exists: true },
+            'location.lng': { $exists: true }
+        });
+        
+        // Calculate distance and filter
+        const nearby = businesses.filter(biz => {
+            if (!biz.location.lat || !biz.location.lng) return false;
+            const distance = calculateDistance(lat, lng, biz.location.lat, biz.location.lng);
+            return distance <= radius;
+        }).map(biz => ({
+            id: biz._id,
+            name: biz.companyName || biz.fullName,
+            rating: biz.rating,
+            location: biz.location,
+            distance: calculateDistance(lat, lng, biz.location.lat, biz.location.lng)
+        })).sort((a, b) => a.distance - b.distance);
+        
+        res.json(nearby);
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+function calculateDistance(lat1, lon1, lat2, lon2) {
+    const R = 6371; // Earth radius in km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+}
+
+// ============ DISPUTE RESOLUTION SYSTEM ============
+const disputeSchema = new mongoose.Schema({
+    orderId: { type: mongoose.Schema.Types.ObjectId, ref: 'Order' },
+    raisedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    reason: String,
+    description: String,
+    evidence: [String],
+    status: { type: String, enum: ['open', 'under_review', 'resolved', 'closed'], default: 'open' },
+    resolution: String,
+    resolvedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    createdAt: { type: Date, default: Date.now },
+    resolvedAt: Date
+});
+
+const Dispute = mongoose.model('Dispute', disputeSchema);
+
+app.post('/api/dispute/raise', authMiddleware, upload.array('evidence', 5), async (req, res) => {
+    try {
+        const { orderId, reason, description } = req.body;
+        
+        let evidenceUrls = [];
+        if (req.files && req.files.length > 0) {
+            evidenceUrls = req.files.map(f => cloudinaryConfigured ? f.path : `data:${f.mimetype};base64,${f.buffer.toString('base64')}`);
+        }
+        
+        const dispute = new Dispute({
+            orderId,
+            raisedBy: req.user.id,
+            reason,
+            description,
+            evidence: evidenceUrls,
+            status: 'open'
+        });
+        await dispute.save();
+        
+        res.json({ success: true, dispute });
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+app.get('/api/admin/disputes', authMiddleware, adminMiddleware, async (req, res) => {
+    try {
+        const disputes = await Dispute.find()
+            .populate('orderId raisedBy', 'orderNumber fullName email')
+            .sort({ createdAt: -1 });
+        res.json(disputes);
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+app.post('/api/admin/dispute/resolve', authMiddleware, adminMiddleware, async (req, res) => {
+    try {
+        const { disputeId, resolution, action } = req.body;
+        const dispute = await Dispute.findById(disputeId);
+        if (!dispute) return res.status(404).json({ error: 'Dispute not found' });
+        
+        dispute.status = 'resolved';
+        dispute.resolution = resolution;
+        dispute.resolvedBy = req.user.id;
+        dispute.resolvedAt = new Date();
+        await dispute.save();
+        
+        if (action === 'refund') {
+            await Order.findByIdAndUpdate(dispute.orderId, { paymentStatus: 'refunded', status: 'disputed_resolved' });
+        }
+        
+        res.json({ success: true, dispute });
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// ============ PUSH NOTIFICATIONS (OneSignal/Web Push) ============
+const notificationSchema = new mongoose.Schema({
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    title: String,
+    body: String,
+    type: { type: String, enum: ['order', 'payment', 'promo', 'system'], default: 'system' },
+    isRead: { type: Boolean, default: false },
+    data: mongoose.Schema.Types.Mixed,
+    createdAt: { type: Date, default: Date.now }
+});
+
+const Notification = mongoose.model('Notification', notificationSchema);
+
+app.post('/api/notifications/send', authMiddleware, async (req, res) => {
+    try {
+        const { userId, title, body, type, data } = req.body;
+        const notification = new Notification({ userId, title, body, type, data });
+        await notification.save();
+        
+        // Emit socket event for real-time notification
+        io.to(userId).emit('new-notification', notification);
+        
+        res.json({ success: true, notification });
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+app.get('/api/notifications', authMiddleware, async (req, res) => {
+    try {
+        const notifications = await Notification.find({ userId: req.user.id })
+            .sort({ createdAt: -1 })
+            .limit(50);
+        res.json(notifications);
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+app.put('/api/notifications/:id/read', authMiddleware, async (req, res) => {
+    try {
+        await Notification.findByIdAndUpdate(req.params.id, { isRead: true });
+        res.json({ success: true });
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// ============ REFERRAL SYSTEM ============
+const referralSchema = new mongoose.Schema({
+    referrerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    referredEmail: String,
+    referredId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    status: { type: String, enum: ['pending', 'completed', 'rewarded'], default: 'pending' },
+    rewardAmount: { type: Number, default: 10 },
+    createdAt: { type: Date, default: Date.now },
+    completedAt: Date
+});
+
+const Referral = mongoose.model('Referral', referralSchema);
+
+app.post('/api/referral/create', authMiddleware, async (req, res) => {
+    try {
+        const { email } = req.body;
+        const existingReferral = await Referral.findOne({ referrerId: req.user.id, referredEmail: email });
+        if (existingReferral) return res.status(400).json({ error: 'Already referred this email' });
+        
+        const referral = new Referral({
+            referrerId: req.user.id,
+            referredEmail: email,
+            status: 'pending'
+        });
+        await referral.save();
+        
+        res.json({ success: true, referralCode: referral._id });
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+app.post('/api/referral/complete/:code', async (req, res) => {
+    try {
+        const referral = await Referral.findById(req.params.code);
+        if (!referral) return res.status(404).json({ error: 'Invalid referral code' });
+        
+        referral.status = 'completed';
+        referral.completedAt = new Date();
+        await referral.save();
+        
+        // Reward referrer
+        const referrer = await User.findById(referral.referrerId);
+        referrer.walletBalance += referral.rewardAmount;
+        await referrer.save();
+        
+        res.json({ success: true, message: 'Referral completed! You get $10 credit!' });
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+app.get('/api/referral/stats', authMiddleware, async (req, res) => {
+    try {
+        const referrals = await Referral.find({ referrerId: req.user.id });
+        const completed = referrals.filter(r => r.status === 'completed').length;
+        const totalEarned = completed * 10;
+        
+        res.json({
+            total: referrals.length,
+            completed,
+            pending: referrals.filter(r => r.status === 'pending').length,
+            totalEarned
+        });
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// ============ TWO-FACTOR AUTHENTICATION (2FA) ============
+const twoFactorSchema = new mongoose.Schema({
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', unique: true },
+    secret: String,
+    enabled: { type: Boolean, default: false },
+    backupCodes: [String]
+});
+
+const TwoFactor = mongoose.model('TwoFactor', twoFactorSchema);
+
+// Generate 2FA secret
+app.post('/api/2fa/setup', authMiddleware, async (req, res) => {
+    try {
+        // Simple 2FA implementation (can be enhanced with speakeasy)
+        const twoFactor = await TwoFactor.findOneAndUpdate(
+            { userId: req.user.id },
+            { enabled: true },
+            { upsert: true, new: true }
+        );
+        
+        // Generate backup codes
+        const backupCodes = [];
+        for (let i = 0; i < 10; i++) {
+            backupCodes.push(Math.random().toString(36).substring(2, 10).toUpperCase());
+        }
+        twoFactor.backupCodes = backupCodes;
+        await twoFactor.save();
+        
+        res.json({ success: true, backupCodes });
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+app.post('/api/2fa/verify', authMiddleware, async (req, res) => {
+    try {
+        const { code } = req.body;
+        const twoFactor = await TwoFactor.findOne({ userId: req.user.id });
+        
+        if (!twoFactor) return res.status(400).json({ error: '2FA not setup' });
+        
+        // Check backup code
+        const isValid = twoFactor.backupCodes.includes(code);
+        if (isValid) {
+            twoFactor.backupCodes = twoFactor.backupCodes.filter(c => c !== code);
+            await twoFactor.save();
+        }
+        
+        res.json({ success: isValid });
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// ============ USER REFERRAL CODE ============
+app.get('/api/user/referral-code', authMiddleware, async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id);
+        if (!user.referralCode) {
+            user.referralCode = Math.random().toString(36).substring(2, 10).toUpperCase();
+            await user.save();
+        }
+        res.json({ referralCode: user.referralCode });
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+
+
 // ============ START SERVER ============
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
