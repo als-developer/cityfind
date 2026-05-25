@@ -374,6 +374,43 @@
         </div>
     </div>
 
+
+
+    <!-- Dashboard Section -->
+<div id="dashboardSection" class="hidden">
+    <!-- Existing stats grid -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        ... stats ...
+    </div>
+    
+    <!-- ============ NEW PAYMENT SECTION - ADD THIS ============ -->
+    <div id="paymentSection" class="glass-card p-6 mt-6">
+        <h2 class="text-xl font-bold mb-4"><i class="fas fa-credit-card text-cyan-400 mr-2"></i> 💰 Payment / Upload Screenshot</h2>
+        
+        <div id="freeTierInfo"></div>
+        
+        <form id="paymentForm" class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+            <input type="number" id="paymentAmount" placeholder="Amount (TZS)" class="bg-white/10 border border-white/20 rounded-lg px-4 py-2" required>
+            <input type="text" id="paymentPhone" placeholder="Your Phone Number (for WhatsApp)" class="bg-white/10 border border-white/20 rounded-lg px-4 py-2" required>
+            <input type="text" id="paymentTransactionId" placeholder="Transaction ID (optional)" class="bg-white/10 border border-white/20 rounded-lg px-4 py-2">
+            <input type="file" id="paymentScreenshot" accept="image/*" class="bg-white/10 border border-white/20 rounded-lg px-4 py-2" required>
+            <button type="submit" class="md:col-span-2 bg-gradient-to-r from-green-500 to-cyan-600 rounded-full py-2 font-semibold hover:scale-105 transition">
+                <i class="fas fa-cloud-upload-alt mr-2"></i> Upload Payment Proof
+            </button>
+        </form>
+        
+        <div id="paymentStatus" class="mt-4"></div>
+    </div>
+    <!-- ============ END PAYMENT SECTION ============ -->
+    
+    <!-- Existing create ad form -->
+    <div class="bg-white/5 rounded-2xl p-6 border border-cyan-500/20 mt-6">
+        ...
+    </div>
+</div>
+
+    
+
     <!-- Chat Bot -->
     <button id="chatToggle" class="fixed bottom-6 right-6 bg-gradient-to-r from-cyan-500 to-purple-600 w-14 h-14 rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition z-50">
         <i class="fas fa-robot text-white text-2xl"></i>
