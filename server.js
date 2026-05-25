@@ -1031,3 +1031,329 @@ server.listen(PORT, () => {
     console.log(`🏦 NMB Account: ${process.env.NMB_ACCOUNT || '5161480052318274'}`);
     console.log(`✅ All routes are ready`);
 });
+
+
+
+// ============ ORDER NOTIFICATIONS ============
+const nodemailer = require('nodemailer');
+
+// Email transporter setup (optional - unahitaji Gmail app password)
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: process.env.ADMIN_EMAIL || 'citytechuk@gmail.com',
+        pass: process.env.EMAIL_PASSWORD || ''
+    }
+});
+
+// Send order confirmation email
+async function sendOrderEmail(userEmail, orderNumber, productName) {
+    try {
+        await transporter.sendMail({
+            from: `"City Find" <${process.env.ADMIN_EMAIL}>`,
+            to: userEmail,
+            subject: `Order Confirmation - ${orderNumber}`,
+            html: `
+                <h2>Thank you for your order!</h2>
+                <p>Your order <strong>${orderNumber}</strong> has been created successfully.</p>
+                <p>Product: ${productName}</p>
+                <p>Track your order: <a href="https://cityfind.zass.website/track.html">Click here</a></p>
+                <p>Questions? WhatsApp: +255796323348</p>
+            `
+        });
+        console.log(`📧 Email sent to ${userEmail}`);
+    } catch (error) {
+        console.log('Email error:', error.message);
+    }
+}
+
+// Send WhatsApp notification via API (using callmebot or similar)
+async function sendWhatsAppNotification(phoneNumber, message) {
+    try {
+        // Using callmebot free API (requires setup)
+        const apiKey = process.env.CALLMEBOT_API_KEY;
+        if (apiKey) {
+            await axios.get(`https://api.callmebot.com/whatsapp.php?phone=${phoneNumber}&text=${encodeURIComponent(message)}&apikey=${apiKey}`);
+        }
+        console.log(`📱 WhatsApp notification to ${phoneNumber}`);
+    } catch (error) {
+        console.log('WhatsApp error:', error.message);
+    }
+}
+
+
+
+
+// ============ BULK AD MANAGEMENT ============
+
+// Bulk delete expired ads
+app.post('/api/admin/bulk-delete-expired', authMiddleware, adminMiddleware, async (req, res) => {
+    try {
+        const result = await Ad.deleteMany({ 
+            expiryDate: { $lt: new Date() },
+            status: 'expired'
+        });
+        res.json({ success: true, deletedCount: result.deletedCount });
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// Bulk approve pending ads
+app.post('/api/admin/bulk-approve', authMiddleware, adminMiddleware, async (req, res) => {
+    try {
+        const { adIds } = req.body;
+        const result = await Ad.updateMany(
+            { _id: { $in: adIds } },
+            { status: 'active' }
+        );
+        res.json({ success: true, modifiedCount: result.modifiedCount });
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// Get ads statistics for dashboard chart
+app.get('/api/admin/ads-stats', authMiddleware, adminMiddleware, async (req, res) => {
+    try {
+        const stats = await Ad.aggregate([
+            {
+                $group: {
+                    _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+                    count: { $sum: 1 },
+                    revenue: { $sum: "$price" }
+                }
+            },
+            { $sort: { _id: -1 } },
+            { $limit: 30 }
+        ]);
+        res.json(stats);
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+
+
+
+
+// ============ USER ACTIVITY LOGGING ============
+const activityLogSchema = new mongoose.Schema({
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    action: String,
+    details: String,
+    ipAddress: String,
+    createdAt: { type: Date, default: Date.now }
+});
+
+const ActivityLog = mongoose.model('ActivityLog', activityLogSchema);
+
+// Log user activity
+async function logActivity(userId, action, details, ipAddress) {
+    try {
+        const log = new ActivityLog({ userId, action, details, ipAddress });
+        await log.save();
+    } catch (error) {
+        console.error('Activity log error:', error);
+    }
+}
+
+// Get user activity logs (Admin only)
+app.get('/api/admin/activity-logs', authMiddleware, adminMiddleware, async (req, res) => {
+    try {
+        const { limit = 50, userId } = req.query;
+        let query = {};
+        if (userId) query.userId = userId;
+        
+        const logs = await ActivityLog.find(query)
+            .populate('userId', 'fullName email')
+            .sort({ createdAt: -1 })
+            .limit(parseInt(limit));
+        res.json(logs);
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+
+
+
+
+
+// ============ WISHLIST / SAVED ADS ============
+// Add wishlist field to user schema
+// Add to userSchema: savedAds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Ad' }]
+
+// Save ad to wishlist
+app.post('/api/wishlist/add', authMiddleware, async (req, res) => {
+    try {
+        const { adId } = req.body;
+        const user = await User.findById(req.user.id);
+        
+        if (!user.savedAds) user.savedAds = [];
+        if (!user.savedAds.includes(adId)) {
+            user.savedAds.push(adId);
+            await user.save();
+        }
+        
+        res.json({ success: true, message: "Ad saved to wishlist" });
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// Remove from wishlist
+app.delete('/api/wishlist/remove/:adId', authMiddleware, async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id);
+        user.savedAds = user.savedAds.filter(id => id.toString() !== req.params.adId);
+        await user.save();
+        res.json({ success: true, message: "Ad removed from wishlist" });
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// Get user's wishlist
+app.get('/api/wishlist', authMiddleware, async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id).populate('savedAds');
+        res.json(user.savedAds || []);
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+
+
+
+
+
+// ============ PROMOTION CODES ============
+const promoCodeSchema = new mongoose.Schema({
+    code: { type: String, unique: true },
+    discountPercent: Number,
+    validUntil: Date,
+    maxUses: Number,
+    usedCount: { type: Number, default: 0 },
+    isActive: { type: Boolean, default: true }
+});
+
+const PromoCode = mongoose.model('PromoCode', promoCodeSchema);
+
+// Apply promo code
+app.post('/api/promo/apply', authMiddleware, async (req, res) => {
+    try {
+        const { code, amount } = req.body;
+        const promo = await PromoCode.findOne({ 
+            code: code.toUpperCase(), 
+            isActive: true,
+            validUntil: { $gt: new Date() },
+            $expr: { $lt: ["$usedCount", "$maxUses"] }
+        });
+        
+        if (!promo) {
+            return res.status(404).json({ error: "Invalid or expired promo code" });
+        }
+        
+        const discount = (amount * promo.discountPercent) / 100;
+        promo.usedCount += 1;
+        await promo.save();
+        
+        res.json({ 
+            success: true, 
+            discount: discount,
+            finalAmount: amount - discount,
+            message: `${promo.discountPercent}% discount applied!`
+        });
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// Create promo code (Admin only)
+app.post('/api/admin/promo/create', authMiddleware, adminMiddleware, async (req, res) => {
+    try {
+        const { code, discountPercent, validUntil, maxUses } = req.body;
+        const promo = new PromoCode({
+            code: code.toUpperCase(),
+            discountPercent,
+            validUntil: new Date(validUntil),
+            maxUses: maxUses || 100
+        });
+        await promo.save();
+        res.json({ success: true, promo });
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+
+
+
+
+// ============ EXPORT DATA ============
+const createCsvWriter = require('csv-writer').createObjectCsvWriter;
+const fs = require('fs');
+
+// Export orders to CSV
+app.get('/api/export/orders', authMiddleware, async (req, res) => {
+    try {
+        const orders = await Order.find({ senderId: req.user.id })
+            .populate('receiverId', 'fullName phone');
+        
+        const csvData = orders.map(order => ({
+            'Order Number': order.orderNumber,
+            'Product': order.productName,
+            'Quantity': order.quantity,
+            'Status': order.status,
+            'Payment Status': order.paymentStatus,
+            'Date': order.createdAt.toISOString().split('T')[0]
+        }));
+        
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', 'attachment; filename=orders.csv');
+        
+        const csvString = [
+            ['Order Number', 'Product', 'Quantity', 'Status', 'Payment Status', 'Date'],
+            ...csvData.map(row => Object.values(row))
+        ].map(row => row.join(',')).join('\n');
+        
+        res.send(csvString);
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+
+
+
+
+
+
+// ============ VISITOR COUNTER ============
+let visitorCount = 0;
+const visitorIps = new Set();
+
+app.get('/api/visitor-count', (req, res) => {
+    const clientIp = req.ip || req.connection.remoteAddress;
+    if (!visitorIps.has(clientIp)) {
+        visitorIps.add(clientIp);
+        visitorCount++;
+    }
+    res.json({ count: visitorCount, unique: visitorIps.size });
+});
+
+// Get visitor stats (Admin)
+app.get('/api/admin/visitor-stats', authMiddleware, adminMiddleware, (req, res) => {
+    res.json({ 
+        totalVisitors: visitorCount,
+        uniqueVisitors: visitorIps.size,
+        lastUpdated: new Date()
+    });
+});
+
+
+
+
+
