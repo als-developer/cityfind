@@ -3,6 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <meta name="description" content="City Find - Global Business Platform. Advertise your business online, track deliveries, verify quality, and get paid securely. Starting from $100/month. WhatsApp: +255796323348">
+    <meta name="keywords" content="business ads, Tanzania advertising, online marketing, delivery tracking, quality check, global business">
+    <meta name="author" content="City Tech Holdings">
+    <meta name="robots" content="index, follow">
     <title>City Find | Global Business Platform</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -114,6 +118,24 @@
         
         .rating-stars i { cursor: pointer; transition: all 0.2s; }
         .rating-stars i:hover { transform: scale(1.2); }
+        
+        /* Blog Styles */
+        .blog-card {
+            transition: all 0.3s ease;
+        }
+        .blog-card:hover {
+            transform: translateY(-5px);
+        }
+        .blog-content h2 { color: #00f2fe; margin-top: 1rem; margin-bottom: 0.5rem; }
+        .blog-content h3 { color: #9b51e0; margin-top: 0.8rem; margin-bottom: 0.3rem; }
+        .blog-content ul, .blog-content ol { margin-left: 1.5rem; margin-bottom: 1rem; }
+        .blog-content li { margin-bottom: 0.3rem; }
+        .share-btn {
+            transition: all 0.2s;
+        }
+        .share-btn:hover {
+            transform: scale(1.05);
+        }
     </style>
 </head>
 <body>
@@ -154,6 +176,7 @@
                 <button onclick="showSection('orders')" class="px-4 py-2 rounded-full hover:bg-cyan-500/20 transition" id="navOrders"><i class="fas fa-truck mr-2"></i> <span data-key="nav_orders">Orders</span></button>
                 <button onclick="showSection('dashboard')" class="px-4 py-2 rounded-full hover:bg-cyan-500/20 transition" id="navDashboard"><i class="fas fa-chart-line mr-2"></i> <span data-key="nav_dashboard">Dashboard</span></button>
                 <button onclick="showSection('delivery')" class="px-4 py-2 rounded-full hover:bg-cyan-500/20 transition" id="navDelivery"><i class="fas fa-truck-moving mr-2"></i> Delivery</button>
+                <button onclick="showSection('blog')" class="px-4 py-2 rounded-full hover:bg-cyan-500/20 transition" id="navBlog"><i class="fas fa-newspaper mr-2"></i> Blog</button>
             </div>
             <div class="flex gap-2">
                 <div id="authButtons" class="flex gap-2">
@@ -254,6 +277,75 @@
             </div>
         </div>
 
+        <!-- Blog Section -->
+        <div id="blogSection" class="hidden">
+            <h2 class="text-2xl font-bold mb-6"><i class="fas fa-newspaper text-cyan-400 mr-2"></i> Business Blog</h2>
+            <p class="text-gray-400 mb-8">Tips, strategies, and insights to grow your business online</p>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <!-- Blog Post 1 -->
+                <div class="glass-card p-6 blog-card cursor-pointer" onclick="openBlogPost(1)">
+                    <div class="w-full h-48 bg-gradient-to-r from-cyan-500/20 to-purple-500/20 rounded-lg flex items-center justify-center mb-4">
+                        <i class="fas fa-chart-line text-5xl text-cyan-400"></i>
+                    </div>
+                    <h3 class="text-xl font-bold mb-2">How to Advertise Your Business Online</h3>
+                    <p class="text-gray-400 text-sm mb-3">Learn the best strategies to reach more customers and grow your business online in 2026.</p>
+                    <div class="flex justify-between items-center">
+                        <span class="text-xs text-cyan-400"><i class="far fa-calendar-alt mr-1"></i> May 25, 2026</span>
+                        <span class="text-xs text-gray-500"><i class="far fa-eye"></i> 1.2k reads</span>
+                    </div>
+                </div>
+                
+                <!-- Blog Post 2 -->
+                <div class="glass-card p-6 blog-card cursor-pointer" onclick="openBlogPost(2)">
+                    <div class="w-full h-48 bg-gradient-to-r from-green-500/20 to-cyan-500/20 rounded-lg flex items-center justify-center mb-4">
+                        <i class="fas fa-truck text-5xl text-green-400"></i>
+                    </div>
+                    <h3 class="text-xl font-bold mb-2">Delivery Tracking Tips for Business</h3>
+                    <p class="text-gray-400 text-sm mb-3">How to ensure your products reach customers safely and on time every time.</p>
+                    <div class="flex justify-between items-center">
+                        <span class="text-xs text-cyan-400"><i class="far fa-calendar-alt mr-1"></i> May 24, 2026</span>
+                        <span class="text-xs text-gray-500"><i class="far fa-eye"></i> 856 reads</span>
+                    </div>
+                </div>
+                
+                <!-- Blog Post 3 -->
+                <div class="glass-card p-6 blog-card cursor-pointer" onclick="openBlogPost(3)">
+                    <div class="w-full h-48 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 rounded-lg flex items-center justify-center mb-4">
+                        <i class="fas fa-star text-5xl text-yellow-400"></i>
+                    </div>
+                    <h3 class="text-xl font-bold mb-2">Quality Check: Why It Matters</h3>
+                    <p class="text-gray-400 text-sm mb-3">Building trust with customers through quality verification and transparency.</p>
+                    <div class="flex justify-between items-center">
+                        <span class="text-xs text-cyan-400"><i class="far fa-calendar-alt mr-1"></i> May 23, 2026</span>
+                        <span class="text-xs text-gray-500"><i class="far fa-eye"></i> 2.1k reads</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Blog Post Modal -->
+            <div id="blogModal" class="fixed inset-0 bg-black/90 backdrop-blur-sm z-[2000] hidden items-center justify-center overflow-y-auto py-8">
+                <div class="glass-card max-w-3xl w-full mx-4 p-6 max-h-[90vh] overflow-y-auto">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 id="blogModalTitle" class="text-2xl font-bold">Blog Post</h2>
+                        <button onclick="closeBlogModal()" class="text-gray-400 hover:text-white"><i class="fas fa-times text-2xl"></i></button>
+                    </div>
+                    <div id="blogModalContent" class="blog-content prose prose-invert max-w-none">
+                        <!-- Content loads here -->
+                    </div>
+                    <div class="mt-6 pt-4 border-t border-white/10">
+                        <h4 class="font-bold mb-3">Share this article:</h4>
+                        <div class="flex gap-3 flex-wrap">
+                            <button onclick="shareArticle('whatsapp')" class="share-btn bg-green-600 px-4 py-2 rounded-full text-sm hover:bg-green-700"><i class="fab fa-whatsapp mr-2"></i> WhatsApp</button>
+                            <button onclick="shareArticle('facebook')" class="share-btn bg-blue-600 px-4 py-2 rounded-full text-sm hover:bg-blue-700"><i class="fab fa-facebook mr-2"></i> Facebook</button>
+                            <button onclick="shareArticle('twitter')" class="share-btn bg-black px-4 py-2 rounded-full text-sm hover:bg-gray-800"><i class="fab fa-twitter mr-2"></i> Twitter</button>
+                            <button onclick="shareArticle('linkedin')" class="share-btn bg-blue-800 px-4 py-2 rounded-full text-sm hover:bg-blue-900"><i class="fab fa-linkedin mr-2"></i> LinkedIn</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Dashboard Section -->
         <div id="dashboardSection" class="hidden">
             <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
@@ -261,6 +353,19 @@
                 <div class="glass-card p-6 text-center"><i class="fas fa-shopping-cart text-3xl text-purple-400 mb-2"></i><div class="text-2xl font-bold" id="statOrders">0</div><div class="text-gray-400">Total Orders</div></div>
                 <div class="glass-card p-6 text-center"><i class="fas fa-dollar-sign text-3xl text-green-400 mb-2"></i><div class="text-2xl font-bold" id="statRevenue">$0</div><div class="text-gray-400">Revenue</div></div>
                 <div class="glass-card p-6 text-center"><i class="fas fa-star text-3xl text-yellow-400 mb-2"></i><div class="text-2xl font-bold" id="statRating">0</div><div class="text-gray-400">Rating</div></div>
+            </div>
+            
+            <!-- Social Media Sharing Section -->
+            <div class="glass-card p-6 mb-6">
+                <h3 class="text-xl font-bold mb-4"><i class="fas fa-share-alt text-cyan-400 mr-2"></i> Share City Find</h3>
+                <p class="text-gray-400 text-sm mb-4">Help us grow by sharing our platform with your network!</p>
+                <div class="flex flex-wrap gap-3">
+                    <button onclick="shareOn('whatsapp')" class="bg-green-600 px-4 py-2 rounded-full hover:bg-green-700 transition flex items-center gap-2"><i class="fab fa-whatsapp"></i> WhatsApp</button>
+                    <button onclick="shareOn('facebook')" class="bg-blue-600 px-4 py-2 rounded-full hover:bg-blue-700 transition flex items-center gap-2"><i class="fab fa-facebook"></i> Facebook</button>
+                    <button onclick="shareOn('twitter')" class="bg-black px-4 py-2 rounded-full hover:bg-gray-800 transition flex items-center gap-2"><i class="fab fa-twitter"></i> Twitter/X</button>
+                    <button onclick="shareOn('instagram')" class="bg-pink-600 px-4 py-2 rounded-full hover:bg-pink-700 transition flex items-center gap-2"><i class="fab fa-instagram"></i> Instagram</button>
+                    <button onclick="shareOn('linkedin')" class="bg-blue-800 px-4 py-2 rounded-full hover:bg-blue-900 transition flex items-center gap-2"><i class="fab fa-linkedin"></i> LinkedIn</button>
+                </div>
             </div>
             
             <!-- Create Ad Form -->
@@ -399,6 +504,112 @@
         // Configuration for WebRTC
         const configuration = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
         
+        // Blog content
+        const blogPosts = {
+            1: {
+                title: "How to Advertise Your Business Online",
+                date: "May 25, 2026",
+                content: `
+                    <h2>Introduction to Online Advertising</h2>
+                    <p>In today's digital world, online advertising is essential for any business looking to grow. With City Find, you can reach customers across Tanzania and globally.</p>
+                    
+                    <h3>Why Advertise with City Find?</h3>
+                    <ul>
+                        <li><strong>Affordable Pricing</strong> - Starting from just $100/month</li>
+                        <li><strong>Global Reach</strong> - Connect with international customers</li>
+                        <li><strong>Secure Payments</strong> - NMB Bank: 5161480052318274</li>
+                        <li><strong>24/7 Support</strong> - WhatsApp: +255796323348</li>
+                    </ul>
+                    
+                    <h3>Our Advertising Packages</h3>
+                    <ul>
+                        <li><strong>Banner Ads ($100/month)</strong> - Perfect for small businesses starting out</li>
+                        <li><strong>Featured Ads ($500/month)</strong> - Get premium visibility on our homepage</li>
+                        <li><strong>Sponsored Ads ($1,000/month)</strong> - Maximum exposure across all platforms</li>
+                    </ul>
+                    
+                    <h3>Tips for Success</h3>
+                    <ol>
+                        <li>Use high-quality images and videos</li>
+                        <li>Write clear, compelling descriptions</li>
+                        <li>Respond quickly to customer inquiries via WhatsApp</li>
+                        <li>Maintain good ratings by providing quality products</li>
+                    </ol>
+                    
+                    <p>Ready to start? <a href="#" onclick="showAuthModal('register')" class="text-cyan-400">Register now</a> and get your first month FREE!</p>
+                `
+            },
+            2: {
+                title: "Delivery Tracking Tips for Business",
+                date: "May 24, 2026",
+                content: `
+                    <h2>Ensuring Safe and Timely Deliveries</h2>
+                    <p>Delivery tracking is crucial for customer satisfaction. City Find provides real-time GPS tracking for all orders.</p>
+                    
+                    <h3>How Our Delivery System Works</h3>
+                    <ol>
+                        <li><strong>Order Created</strong> - Customer places order</li>
+                        <li><strong>QR/Barcode Scan</strong> - Provider scans product</li>
+                        <li><strong>In Transit</strong> - Real-time GPS tracking</li>
+                        <li><strong>Quality Check</strong> - Customer verifies product</li>
+                        <li><strong>Payment Released</strong> - Funds transferred to seller</li>
+                    </ol>
+                    
+                    <h3>Benefits of GPS Tracking</h3>
+                    <ul>
+                        <li>Customers know exactly where their order is</li>
+                        <li>Reduces "where is my order?" inquiries</li>
+                        <li>Builds trust and reliability</li>
+                        <li>Helps optimize delivery routes</li>
+                    </ul>
+                    
+                    <h3>Delivery Fees</h3>
+                    <p>Delivery fees start at $10 base + $0.50 per km. All payments are held in escrow until quality check is complete.</p>
+                    
+                    <h3>Contact Support</h3>
+                    <p>For delivery issues, contact us on WhatsApp: <strong>+255796323348</strong> or email: <strong>citytechuk@gmail.com</strong></p>
+                `
+            },
+            3: {
+                title: "Quality Check: Why It Matters",
+                date: "May 23, 2026",
+                content: `
+                    <h2>Building Trust Through Quality Verification</h2>
+                    <p>Quality checks protect both buyers and sellers. Our video verification system ensures transparency in every transaction.</p>
+                    
+                    <h3>The Quality Check Process</h3>
+                    <ol>
+                        <li>Customer receives the product</li>
+                        <li>Records a 10-20 second video showing the product</li>
+                        <li>Takes 2-3 clear photos</li>
+                        <li>Uploads media to City Find platform</li>
+                        <li>System verifies quality against specifications</li>
+                        <li>If quality matches → payment released to seller</li>
+                        <li>If issues found → refund processed within 3 days</li>
+                    </ol>
+                    
+                    <h3>Refund Policy</h3>
+                    <p>If the product doesn't match the quality specifications, the customer receives a FULL refund. Refunds are processed within 1-3 business days via:</p>
+                    <ul>
+                        <li>M-Pesa</li>
+                        <li>Tigo Pesa</li>
+                        <li>Airtel Money</li>
+                        <li>Bank Transfer (NMB)</li>
+                    </ul>
+                    
+                    <h3>Why Quality Checks Benefit Your Business</h3>
+                    <ul>
+                        <li>Builds customer trust and loyalty</li>
+                        <li>Reduces disputes and chargebacks</li>
+                        <li>Improves seller ratings and reputation</li>
+                        <li>Attracts more customers to your ads</li>
+                    </ul>
+                    
+                    <p>Have questions? Contact us on WhatsApp: <strong>+255796323348</strong></p>
+                `
+            }
+        };
+        
         // Translations
         const translations = {
             en: { nav_ads: "Ads", nav_tracking: "Track", nav_orders: "Orders", nav_dashboard: "Dashboard", login: "Login", register: "Register", bot_title: "AI Business Assistant" },
@@ -434,6 +645,61 @@
             setTimeout(() => notification.remove(), 5000);
         }
         
+        // Social media sharing functions
+        function shareOn(platform) {
+            const url = encodeURIComponent('https://cityfind.zass.website');
+            const text = encodeURIComponent('🚀 Advertise your business with City Find! Global Business Platform with delivery tracking, quality checks, and secure payments. Starting from $100/month. WhatsApp: +255796323348');
+            
+            const shareUrls = {
+                whatsapp: `https://wa.me/?text=${text}%20${url}`,
+                facebook: `https://www.facebook.com/sharer/sharer.php?u=${url}`,
+                twitter: `https://twitter.com/intent/tweet?text=${text}&url=${url}`,
+                linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${url}`
+            };
+            
+            if (platform === 'instagram') {
+                navigator.clipboard.writeText(`https://cityfind.zass.website\n\n${decodeURIComponent(text)}`);
+                alert('✅ Link copied! You can now paste it on Instagram.');
+            } else if (shareUrls[platform]) {
+                window.open(shareUrls[platform], '_blank');
+            }
+        }
+        
+        function shareArticle(platform) {
+            const url = encodeURIComponent(window.location.href);
+            const title = encodeURIComponent(document.getElementById('blogModalTitle').textContent);
+            
+            const shareUrls = {
+                whatsapp: `https://wa.me/?text=${title}%20${url}`,
+                facebook: `https://www.facebook.com/sharer/sharer.php?u=${url}`,
+                twitter: `https://twitter.com/intent/tweet?text=${title}&url=${url}`,
+                linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${url}`
+            };
+            
+            if (shareUrls[platform]) {
+                window.open(shareUrls[platform], '_blank');
+            }
+        }
+        
+        // Blog functions
+        function openBlogPost(postId) {
+            const post = blogPosts[postId];
+            if (post) {
+                document.getElementById('blogModalTitle').textContent = post.title;
+                document.getElementById('blogModalContent').innerHTML = `
+                    <div class="text-sm text-gray-400 mb-4"><i class="far fa-calendar-alt mr-1"></i> ${post.date}</div>
+                    ${post.content}
+                `;
+                document.getElementById('blogModal').classList.remove('hidden');
+                document.getElementById('blogModal').style.display = 'flex';
+            }
+        }
+        
+        function closeBlogModal() {
+            document.getElementById('blogModal').classList.add('hidden');
+            document.getElementById('blogModal').style.display = 'none';
+        }
+        
         // Load ads
         async function loadAds() {
             try {
@@ -461,8 +727,9 @@
             document.getElementById('ordersSection')?.classList.add('hidden');
             document.getElementById('dashboardSection')?.classList.add('hidden');
             document.getElementById('deliverySection')?.classList.add('hidden');
+            document.getElementById('blogSection')?.classList.add('hidden');
             document.getElementById(`${section}Section`)?.classList.remove('hidden');
-            ['navAds', 'navTracking', 'navOrders', 'navDashboard', 'navDelivery'].forEach(id => { document.getElementById(id)?.classList.remove('bg-cyan-500/20'); });
+            ['navAds', 'navTracking', 'navOrders', 'navDashboard', 'navDelivery', 'navBlog'].forEach(id => { document.getElementById(id)?.classList.remove('bg-cyan-500/20'); });
             document.getElementById(`nav${section.charAt(0).toUpperCase() + section.slice(1)}`)?.classList.add('bg-cyan-500/20');
             if (section === 'dashboard' && currentUser) { loadDashboardData(); checkFreeTier(); loadPaymentStatus(); loadCompaniesForRating(); }
             if (section === 'orders' && currentUser) loadOrders();
