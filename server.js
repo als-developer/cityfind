@@ -674,55 +674,81 @@ app.post('/api/bot/chat', async (req, res) => {
     try {
         const { message, context, language } = req.body;
         
-        // Tumia Google Gemini API
-        const response = await axios.post(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GOOGLE_AI_API_KEY}`,
-            {
-                contents: [{
-                    parts: [{
-                        text: `You are a professional business assistant for City Find platform.
-                        
-Company Information:
-- Name: City Find
-- Email: citytechuk@gmail.com
-- Phone/WhatsApp: +255796323348
-- Bank: NMB Bank, Account: 5161480052318274, Name: City Tech Holdings
-- Services: Business Advertising ($100-$1000/month), Delivery Tracking, Quality Checks, Escrow Payments
+        // Google Gemini API URL - version 1.5 (newer)
+        // Jaribu hizi URL moja baada ya nyingine
+        const apiUrls = [
+            'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent',
+            'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent',
+            'https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent'
+        ];
+        
+        let lastError = null;
+        
+        for (const apiUrl of apiUrls) {
+            try {
+                const fullUrl = `${apiUrl}?key=${GOOGLE_AI_API_KEY}`;
+                console.log('Trying API URL:', fullUrl);
+                
+                const response = await axios.post(
+                    fullUrl,
+                    {
+                        contents: [{
+                            parts: [{
+                                text: `You are a business assistant for City Find platform.
+                                
+Company: City Find
+Contact: +255796323348 (WhatsApp), citytechuk@gmail.com
+Bank: NMB 5161480052318274 (City Tech Holdings)
 
-Instructions:
-- Be helpful, professional, and concise
-- Respond in ${language === 'sw' ? 'Swahili' : 'English'}
-- If user asks about prices, give exact amounts
-- If user wants to advertise, guide them to register as Company
-- If user wants to track order, ask for order number
+Pricing:
+- Banner Ads: $100/month
+- Featured Ads: $500/month
+- Sponsored Ads: $1000/month
+
+Services: Advertising, Delivery tracking, Quality checks, Escrow payments
 
 User question: ${message}
 
-Respond helpfully and naturally.`
-                    }]
-                }]
-            },
-            { timeout: 15000 }
-        );
+Answer concisely and helpfully in ${language === 'sw' ? 'Swahili' : 'English'}.`
+                            }]
+                        }],
+                        generationConfig: {
+                            temperature: 0.7,
+                            maxOutputTokens: 300
+                        }
+                    },
+                    { timeout: 15000 }
+                );
+                
+                if (response.data && response.data.candidates && response.data.candidates[0]) {
+                    const botReply = response.data.candidates[0].content.parts[0].text;
+                    console.log('AI Bot success with URL:', apiUrl);
+                    return res.json({ reply: botReply });
+                }
+            } catch (err) {
+                console.log(`Failed with ${apiUrl}:`, err.response?.status);
+                lastError = err;
+            }
+        }
         
-        const botReply = response.data.candidates[0].content.parts[0].text;
-        res.json({ reply: botReply });
+        throw lastError || new Error('All API URLs failed');
         
     } catch (error) {
         console.error('AI Bot Error:', error.message);
         
-        // Fallback response ikiwa API inashindwa
+        // Fallback response
         res.json({ 
             reply: `👋 Hello! I'm City Find AI Assistant.
-            
-I can help you with:
-• 💰 Advertising (from $100/month)
-• 📦 Tracking deliveries  
-• 💳 Payments: NMB 5161480052318274
-• ✅ Quality checks
-• 🔍 Finding products
 
-For urgent matters, WhatsApp: +255796323348
+I can help you with:
+• 💰 **Advertising** - From $100/month
+• 📦 **Tracking deliveries** 
+• 💳 **Payments** - NMB: 5161480052318274
+• ✅ **Quality checks**
+• 🔍 **Finding products**
+
+📞 WhatsApp: +255796323348
+📧 Email: citytechuk@gmail.com
 
 How can I help you today?`
         });
