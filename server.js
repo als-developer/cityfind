@@ -547,49 +547,7 @@ app.get('/api/ratings/company/:companyId', async (req, res) => {
     }
 });
 
-// ============ ADMIN ROUTES ============
-app.get('/api/admin/stats', authMiddleware, adminMiddleware, async (req, res) => {
-    try {
-        const totalUsers = await User.countDocuments();
-        const totalAds = await Ad.countDocuments();
-        const activeAds = await Ad.countDocuments({ status: 'active' });
-        const totalOrders = await Order.countDocuments();
-        const completedOrders = await Order.countDocuments({ status: 'completed' });
-        const totalRevenue = await Payment.aggregate([
-            { $match: { status: 'completed' } },
-            { $group: { _id: null, total: { $sum: '$amount' } } }
-        ]);
-        
-        res.json({
-            users: { total: totalUsers },
-            ads: { total: totalAds, active: activeAds },
-            orders: { total: totalOrders, completed: completedOrders },
-            revenue: { total: totalRevenue[0]?.total || 0 }
-        });
-    } catch (error) {
-        res.status(400).json({ error: error.message });
-    }
-});
-
-app.get('/api/admin/users', authMiddleware, adminMiddleware, async (req, res) => {
-    try {
-        const users = await User.find().select('-password').sort({ createdAt: -1 });
-        res.json(users);
-    } catch (error) {
-        res.status(400).json({ error: error.message });
-    }
-});
-
-app.put('/api/admin/users/:id/verify', authMiddleware, adminMiddleware, async (req, res) => {
-    try {
-        const user = await User.findByIdAndUpdate(req.params.id, { isVerified: true }, { new: true });
-        res.json({ success: true, user });
-    } catch (error) {
-        res.status(400).json({ error: error.message });
-    }
-});
-
-// ============ AI BOT ROUTE - SIMPLE VERSION (NO GEMINI API) ============
+// ============ AI BOT ROUTE - SIMPLE VERSION ============
 app.post('/api/bot/chat', async (req, res) => {
     try {
         const { message, language } = req.body;
@@ -597,40 +555,36 @@ app.post('/api/bot/chat', async (req, res) => {
         const lowerMsg = (message || '').toLowerCase();
         let reply = '';
         
-        if (lowerMsg.includes('bei') || lowerMsg.includes('price') || lowerMsg.includes('gharama') || lowerMsg.includes('kiasi')) {
+        if (lowerMsg.includes('bei') || lowerMsg.includes('price') || lowerMsg.includes('gharama')) {
             reply = "💰 **Bei za Matangazo:**\n• Banner: $100 kwa mwezi\n• Featured: $500 kwa mwezi\n• Sponsored: $1,000 kwa mwezi\n\nKwa maelezo zaidi, WhatsApp: +255796323348";
         }
-        else if (lowerMsg.includes('lipa') || lowerMsg.includes('payment') || lowerMsg.includes('malipo') || lowerMsg.includes('bank') || lowerMsg.includes('nmb')) {
-            reply = "🏦 **Maelezo ya Malipo:**\n\nBenki: NMB Bank\nJina la Akaunti: City Tech Holdings\nNamba ya Akaunti: 5161480052318274\nSWIFT: NMBCTZTZ\n\n💵 **Njia za Malipo:**\n• Direct Bank Transfer (NMB)\n• Mobile Money (M-Pesa, Tigo Pesa, Airtel Money)\n• Cash on Delivery\n\nBaada ya malipo, tuna proof yako kwa WhatsApp: +255796323348";
+        else if (lowerMsg.includes('lipa') || lowerMsg.includes('payment') || lowerMsg.includes('malipo') || lowerMsg.includes('bank')) {
+            reply = "🏦 **Maelezo ya Malipo:**\n\nBenki: NMB Bank\nJina la Akaunti: City Tech Holdings\nNamba ya Akaunti: 5161480052318274\nSWIFT: NMBCTZTZ\n\nBaada ya malipo, tuna proof yako kwa WhatsApp: +255796323348";
         }
         else if (lowerMsg.includes('refund') || lowerMsg.includes('rejesha') || lowerMsg.includes('reimburse')) {
             reply = "💰 **Kuhusu Refund (Kurejeshewa Pesa):**\n\nPesa yako itarejeshwa na **City Tech Holdings** kupitia NMB Bank (Akaunti: 5161480052318274).\n\n📌 **Mchakato wa Refund:**\n1. Ukifanya quality check na bidhaa hailingani\n2. Tunachakata ombi lako ndani ya saa 24\n3. Pesa inarejeshwa kwenye M-Pesa au Akaunti yako ya Benki\n4. Muda wa kurejesha: Siku 1-3\n\nKwa msaada zaidi, WhatsApp: +255796323348";
         }
-        else if (lowerMsg.includes('simu') || lowerMsg.includes('phone') || lowerMsg.includes('contact') || lowerMsg.includes('wasiliana') || lowerMsg.includes('namba')) {
-            reply = "📞 **Mawasiliano Yetu:**\n\nWhatsApp/Simu: +255796323348\nBarua Pepe: citytechuk@gmail.com\n\nTunapatikana 24/7 kwa maswali yako yote!";
+        else if (lowerMsg.includes('simu') || lowerMsg.includes('phone') || lowerMsg.includes('contact')) {
+            reply = "📞 **Mawasiliano Yetu:**\n\nWhatsApp/Simu: +255796323348\nBarua Pepe: citytechuk@gmail.com\n\nTunapatikana 24/7!";
         }
-        else if (lowerMsg.includes('track') || lowerMsg.includes('fuatilia') || lowerMsg.includes('order') || lowerMsg.includes('agizo')) {
-            reply = "📦 **Kufuatilia Order Yako:**\n\nNenda kwenye sehemu ya 'Track' kwenye website yetu na ingiza namba yako ya order (inaanza na ORD).\n\nAu tuma namba yako ya order hapa nikusaidie kufuatilia!";
+        else if (lowerMsg.includes('track') || lowerMsg.includes('fuatilia')) {
+            reply = "📦 **Kufuatilia Order Yako:**\nNenda kwenye sehemu ya 'Track' na ingiza namba yako ya order (inaanza na ORD).";
         }
-        else if (lowerMsg.includes('quality') || lowerMsg.includes('ubora') || lowerMsg.includes('check') || lowerMsg.includes('kagua')) {
-            reply = "✅ **Quality Check Process:**\n\n1. Pokea bidhaa yako\n2. Rekodi video fupi (sekunde 10-20) ikionyesha bidhaa\n3. Piga picha 2-3 za bidhaa\n4. Tembelea sehemu ya 'Quality Check' kwenye website yako\n5. Pakia video na picha\n\nKama bidhaa hailingani na maelezo, utalipwa pesa yako tena ndani ya siku 3!";
+        else if (lowerMsg.includes('quality') || lowerMsg.includes('ubora')) {
+            reply = "✅ **Quality Check Process:**\n1. Pokea bidhaa\n2. Rekodi video fupi\n3. Piga picha\n4. Pakia kwenye website\n5. Kama bidhaa hailingani, utarejeshewa pesa ndani ya siku 3";
         }
         else {
-            reply = "👋 Hello! I'm City Find AI Assistant.\n\nI can help you with:\n• 💰 **Bei za Matangazo** - Banner $100, Featured $500, Sponsored $1000\n• 📦 **Kufuatilia delivery** - Tuma order number yako\n• 💳 **Malipo** - NMB Bank: 5161480052318274\n• ✅ **Quality check** - Ukaguzi wa bidhaa kwa video\n• 🔄 **Refund** - Kurejeshewa pesa kama bidhaa hailingani\n\n📞 WhatsApp: +255796323348\n📧 Email: citytechuk@gmail.com\n\nNiulize swali lolote kuhusu huduma zetu!";
+            reply = "👋 Hello! I'm City Find AI Assistant.\n\nI can help you with:\n• 💰 Bei za Matangazo\n• 📦 Kufuatilia delivery\n• 💳 Malipo (NMB Bank)\n• ✅ Quality checks\n• 🔄 Refund (Kurejeshewa pesa)\n\n📞 WhatsApp: +255796323348\n📧 Email: citytechuk@gmail.com\n\nNiulize swali lolote!";
         }
         
         res.json({ reply: reply });
     } catch (error) {
         console.error('Bot Error:', error.message);
-        res.json({ reply: "Samahani, kuna tatizo. Tafadhali wasiliana nasi kwenye WhatsApp: +255796323348 kwa msaada wa haraka." });
+        res.json({ reply: "Tafadhali wasiliana nasi kwenye WhatsApp: +255796323348 kwa msaada." });
     }
 });
 
 // ============ SERVE HTML FILES ============
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
 app.get('/dashboard-admin.html', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'dashboard-admin.html'));
 });
@@ -675,6 +629,11 @@ io.on('connection', (socket) => {
         }
         console.log('🔌 Client disconnected:', socket.id);
     });
+});
+
+// ============ ROOT ROUTE ============
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 // ============ START SERVER ============
