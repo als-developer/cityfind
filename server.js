@@ -10,6 +10,9 @@ const axios = require('axios');
 const QRCode = require('qrcode');
 const bwipjs = require('bwip-js');
 const path = require('path');
+const multer = require('multer');
+const cloudinary = require('cloudinary').v2;
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
 
 dotenv.config();
 
@@ -22,6 +25,23 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
+
+// ============ CLOUDINARY CONFIG ============
+cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'demo',
+    api_key: process.env.CLOUDINARY_API_KEY || '',
+    api_secret: process.env.CLOUDINARY_API_SECRET || ''
+});
+
+const storage = new CloudinaryStorage({
+    cloudinary: cloudinary,
+    params: {
+        folder: 'cityfind',
+        allowed_formats: ['jpg', 'png', 'jpeg', 'webp', 'mp4', 'pdf'],
+        transformation: [{ width: 1200, height: 800, crop: 'limit' }]
+    }
+});
+const upload = multer({ storage: storage });
 
 // ============ DATABASE SCHEMAS ============
 const userSchema = new mongoose.Schema({
@@ -37,6 +57,11 @@ const userSchema = new mongoose.Schema({
     rating: { type: Number, default: 5 },
     totalDeliveries: { type: Number, default: 0 },
     location: { lat: Number, lng: Number, address: String },
+    // FREE TIER & PREMIUM FIELDS
+    freeTierUsed: { type: Boolean, default: false },
+    freeTierExpiry: { type: Date },
+    isPremium: { type: Boolean, default: false },
+    premiumExpiry: { type: Date },
     createdAt: { type: Date, default: Date.now }
 });
 
@@ -99,15 +124,20 @@ const orderSchema = new mongoose.Schema({
 const paymentSchema = new mongoose.Schema({
     orderId: { type: mongoose.Schema.Types.ObjectId, ref: 'Order' },
     adId: { type: mongoose.Schema.Types.ObjectId, ref: 'Ad' },
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     amount: Number,
     currency: { type: String, default: 'USD' },
-    method: { type: String, enum: ['stripe', 'pesapal', 'nmb', 'card', 'crypto'] },
+    method: { type: String, enum: ['stripe', 'pesapal', 'nmb', 'card', 'crypto', 'bank_transfer'] },
     transactionId: String,
     status: { type: String, enum: ['pending', 'completed', 'failed', 'refunded'], default: 'pending' },
     senderAccount: String,
     receiverAccount: String,
     senderName: String,
     receiverName: String,
+    phoneNumber: String,
+    screenshotUrl: String,
+    verifiedAt: Date,
+    rejectionReason: String,
     createdAt: { type: Date, default: Date.now }
 });
 
@@ -202,9 +232,11 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
 });
 
 // ============ ADS ROUTES ============
-app.post('/api/ads/create', authMiddleware, async (req, res) => {
+app.post('/api/ads/create', authMiddleware, upload.array('media', 10), async (req, res) => {
     try {
-        const { title, description, mediaUrls, mediaType, category, adType, price, currency, expiryDate } = req.body;
+        const { title, description, mediaType, category, adType, price, currency, expiryDate } = req.body;
+        
+        const mediaUrls = req.files ? req.files.map(f => f.path) : [];
         
         const galaxyAnimations = {
             banner: 'spiral_galaxy',
@@ -217,7 +249,7 @@ app.post('/api/ads/create', authMiddleware, async (req, res) => {
             companyId: req.user.id,
             title,
             description,
-            mediaUrls: mediaUrls || [],
+            mediaUrls: mediaUrls,
             mediaType: mediaType || 'image',
             category,
             adType: adType || 'banner',
@@ -506,40 +538,219 @@ app.get('/api/payments/history', authMiddleware, async (req, res) => {
     }
 });
 
-// ============ RATINGS ROUTES ============
-app.post('/api/ratings/company', authMiddleware, async (req, res) => {
+// ============ FREE TIER & PAYMENT VERIFICATION ROUTES ============
+
+// 1. CHECK FREE TIER STATUS
+app.get('/api/check-free-tier', authMiddleware, async (req, res) => {
     try {
-        const { companyId, orderId, rating, comment, deliveryOnTime, qualityMatched, communication } = req.body;
+        const user = await User.findById(req.user.id);
+        const now = new Date();
         
-        const ratingRecord = new CompanyRating({
-            companyId,
-            reviewerId: req.user.id,
-            orderId,
-            rating,
-            comment,
-            deliveryOnTime,
-            qualityMatched,
-            communication: communication || 5
-        });
-        await ratingRecord.save();
+        if (user.freeTierExpiry && user.freeTierExpiry > now) {
+            return res.json({ 
+                hasFreeTier: true, 
+                expiresAt: user.freeTierExpiry,
+                message: "You have an active free tier!"
+            });
+        }
         
-        const avgRating = await CompanyRating.aggregate([
-            { $match: { companyId: companyId } },
-            { $group: { _id: null, avg: { $avg: '$rating' } } }
-        ]);
+        if (!user.freeTierUsed) {
+            user.freeTierUsed = true;
+            user.freeTierExpiry = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+            user.isPremium = false;
+            await user.save();
+            
+            return res.json({ 
+                hasFreeTier: true, 
+                expiresAt: user.freeTierExpiry,
+                message: "Welcome! You've received 1 month free tier!"
+            });
+        }
         
-        await User.findByIdAndUpdate(companyId, { rating: avgRating[0]?.avg || 5 });
-        
-        res.json({ success: true, rating: ratingRecord });
+        res.json({ hasFreeTier: false, message: "Free tier expired. Please make a payment." });
     } catch (error) {
         res.status(400).json({ error: error.message });
     }
 });
 
+// 2. UPLOAD PAYMENT SCREENSHOT
+app.post('/api/payments/upload-screenshot', authMiddleware, upload.single('screenshot'), async (req, res) => {
+    try {
+        const { amount, phoneNumber, transactionId } = req.body;
+        const screenshotUrl = req.file ? req.file.path : null;
+        
+        const payment = new Payment({
+            userId: req.user.id,
+            amount: amount || 0,
+            currency: 'TZS',
+            method: 'bank_transfer',
+            transactionId: transactionId || 'PENDING_' + Date.now(),
+            status: 'pending',
+            screenshotUrl: screenshotUrl,
+            phoneNumber: phoneNumber,
+            senderName: req.user.fullName,
+            receiverName: 'City Tech Holdings',
+            receiverAccount: process.env.NMB_ACCOUNT || '5161480052318274'
+        });
+        
+        await payment.save();
+        
+        console.log(`📱 Payment uploaded by ${req.user.fullName}: ${amount} TZS`);
+        
+        res.json({ 
+            success: true, 
+            paymentId: payment._id,
+            message: "Payment screenshot uploaded! Our team will verify within 24 hours."
+        });
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// 3. GET PAYMENT STATUS
+app.get('/api/payments/status', authMiddleware, async (req, res) => {
+    try {
+        const payments = await Payment.find({ userId: req.user.id }).sort({ createdAt: -1 });
+        const user = await User.findById(req.user.id);
+        
+        res.json({
+            payments: payments.map(p => ({
+                id: p._id,
+                amount: p.amount,
+                status: p.status,
+                statusText: p.status === 'pending' ? '⏳ Waiting for verification' : '✅ Verified',
+                createdAt: p.createdAt,
+                transactionId: p.transactionId
+            })),
+            isPremium: user.isPremium || false,
+            premiumExpiry: user.premiumExpiry,
+            freeTierUsed: user.freeTierUsed,
+            freeTierExpiry: user.freeTierExpiry
+        });
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// 4. ADMIN VERIFY PAYMENT
+app.post('/api/admin/verify-payment', authMiddleware, adminMiddleware, async (req, res) => {
+    try {
+        const { paymentId, action, reason } = req.body;
+        const payment = await Payment.findById(paymentId);
+        
+        if (!payment) return res.status(404).json({ error: 'Payment not found' });
+        
+        if (action === 'approve') {
+            payment.status = 'completed';
+            payment.verifiedAt = new Date();
+            await payment.save();
+            
+            // Find user and activate premium
+            const user = await User.findById(payment.userId);
+            if (user) {
+                user.isPremium = true;
+                user.premiumExpiry = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+                await user.save();
+                console.log(`✅ Premium activated for ${user.email}`);
+            }
+            
+            res.json({ success: true, message: "Payment verified! User premium activated for 30 days." });
+        } else if (action === 'reject') {
+            payment.status = 'failed';
+            payment.rejectionReason = reason;
+            await payment.save();
+            res.json({ success: true, message: "Payment rejected." });
+        }
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// 5. GET ALL PENDING PAYMENTS (Admin)
+app.get('/api/admin/pending-payments', authMiddleware, adminMiddleware, async (req, res) => {
+    try {
+        const pendingPayments = await Payment.find({ status: 'pending' }).sort({ createdAt: -1 }).populate('userId', 'fullName email phone');
+        res.json(pendingPayments);
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// ============ RATINGS & REVIEWS ROUTES ============
+
+// 6. SUBMIT RATING
+app.post('/api/ratings/company', authMiddleware, async (req, res) => {
+    try {
+        const { companyId, orderId, rating, comment, deliveryOnTime, qualityMatched, communication } = req.body;
+        
+        // Check for existing rating
+        const existingRating = await CompanyRating.findOne({ 
+            companyId: companyId, 
+            reviewerId: req.user.id,
+            orderId: orderId 
+        });
+        
+        if (existingRating) {
+            return res.status(400).json({ error: 'You have already rated this company for this order' });
+        }
+        
+        const ratingRecord = new CompanyRating({
+            companyId,
+            reviewerId: req.user.id,
+            orderId: orderId || 'manual_' + Date.now(),
+            rating: parseInt(rating),
+            comment: comment || '',
+            deliveryOnTime: deliveryOnTime !== undefined ? deliveryOnTime : true,
+            qualityMatched: qualityMatched !== undefined ? qualityMatched : true,
+            communication: communication || parseInt(rating)
+        });
+        
+        await ratingRecord.save();
+        
+        // Update company's average rating
+        const avgRating = await CompanyRating.aggregate([
+            { $match: { companyId: companyId } },
+            { $group: { _id: null, avg: { $avg: '$rating' }, count: { $sum: 1 } } }
+        ]);
+        
+        const newAvgRating = avgRating[0]?.avg || rating;
+        await User.findByIdAndUpdate(companyId, { rating: newAvgRating });
+        
+        res.json({ 
+            success: true, 
+            message: `Thank you for your ${rating}-star rating!`,
+            averageRating: newAvgRating
+        });
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// 7. GET RATINGS FOR COMPANY
 app.get('/api/ratings/company/:companyId', async (req, res) => {
     try {
         const ratings = await CompanyRating.find({ companyId: req.params.companyId })
             .populate('reviewerId', 'fullName')
+            .sort({ createdAt: -1 });
+        
+        const company = await User.findById(req.params.companyId).select('companyName fullName rating');
+        
+        res.json({
+            company: company,
+            ratings: ratings,
+            averageRating: company?.rating || 0,
+            totalRatings: ratings.length
+        });
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// 8. GET MY RATINGS
+app.get('/api/ratings/my', authMiddleware, async (req, res) => {
+    try {
+        const ratings = await CompanyRating.find({ reviewerId: req.user.id })
+            .populate('companyId', 'companyName fullName')
             .sort({ createdAt: -1 });
         res.json(ratings);
     } catch (error) {
@@ -547,8 +758,7 @@ app.get('/api/ratings/company/:companyId', async (req, res) => {
     }
 });
 
-// ============ AI BOT ROUTE - SIMPLE VERSION ============
-// // ============ AI BOT ROUTE - WITH DEEPSEEK API ============
+// ============ AI BOT ROUTE - WITH DEEPSEEK API ============
 const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY;
 
 app.post('/api/bot/chat', async (req, res) => {
@@ -557,7 +767,6 @@ app.post('/api/bot/chat', async (req, res) => {
         
         console.log('🤖 User asked:', message);
         
-        // DeepSeek API endpoint
         const apiUrl = "https://api.deepseek.com/v1/chat/completions";
         
         const response = await axios.post(
@@ -567,40 +776,20 @@ app.post('/api/bot/chat', async (req, res) => {
                 messages: [
                     {
                         role: "system",
-                        content: `You are City Find AI Assistant - a helpful business assistant for a Tanzanian company.
+                        content: `You are City Find AI Assistant - a helpful business assistant.
+                        
+COMPANY: City Find (by City Tech Holdings)
+CONTACT: +255796323348 (WhatsApp), citytechuk@gmail.com
+BANK: NMB Bank - Account: 5161480052318274, Name: City Tech Holdings
 
-COMPANY INFO:
-- Name: City Find (by City Tech Holdings)
-- WhatsApp/Phone: +255796323348
-- Email: citytechuk@gmail.com
-- Bank: NMB Bank Tanzania
-- Account Name: City Tech Holdings  
-- Account Number: 5161480052318274
-- SWIFT: NMBCTZTZ
+PRICING:
+- Banner Ads: $100/month
+- Featured Ads: $500/month
+- Sponsored Ads: $1000/month
 
-SERVICES & PRICING:
-- Banner Ads: $100 per month
-- Featured Ads: $500 per month
-- Sponsored Ads: $1,000 per month
-- Delivery Tracking: Free
-- Quality Check: Free (with video verification)
-
-CAPABILITIES:
-- Can create HTML/CSS/JavaScript code for websites, animations, and applications
-- Can create flower animations, car animations, music players, galaxy effects, and more
-- Can help with business inquiries about ads, payments, tracking, and quality checks
-
-INSTRUCTIONS:
-1. If user asks to CREATE something (HTML, CSS, website, animation, flower, car, music, galaxy), provide COMPLETE working code
-2. Answer in ${language === 'sw' ? 'Swahili (Kiswahili)' : 'English'}
-3. Be friendly, helpful, and professional
-4. For HTML/CSS requests, give full code inside triple backticks
-5. Keep responses helpful and concise`
+You can create HTML/CSS/JavaScript code. Answer in ${language === 'sw' ? 'Swahili' : 'English'}.`
                     },
-                    {
-                        role: "user",
-                        content: message
-                    }
+                    { role: "user", content: message }
                 ],
                 temperature: 0.7,
                 max_tokens: 2000
@@ -624,102 +813,15 @@ INSTRUCTIONS:
         
     } catch (error) {
         console.error('❌ DeepSeek API Error:', error.message);
-        if (error.response) {
-            console.error('API Response:', error.response.data);
-        }
         
-        // Fallback response for HTML/CSS creation
+        // Fallback response
         const lowerMsg = (message || '').toLowerCase();
         let fallbackReply = "";
         
-        // HTML/CSS creation fallbacks
-        if (lowerMsg.includes('flower') || (lowerMsg.includes('frower'))) {
-            fallbackReply = `🌸 **Beautiful Flower HTML/CSS** 🌸
-
-\`\`\`html
-<!DOCTYPE html>
-<html>
-<head>
-<style>
-body {
-    background: linear-gradient(135deg, #0a0f2a, #000);
-    min-height: 100vh;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
-.flower {
-    position: relative;
-    width: 200px;
-    height: 200px;
-    animation: float 3s ease infinite;
-}
-@keyframes float {
-    0%,100% { transform: translateY(0); }
-    50% { transform: translateY(-20px); }
-}
-.petal {
-    position: absolute;
-    width: 80px;
-    height: 80px;
-    background: radial-gradient(circle, #ff69b4, #ff1493);
-    border-radius: 50%;
-    box-shadow: 0 0 20px rgba(255,105,180,0.5);
-}
-.petal1 { top: -30px; left: 60px; }
-.petal2 { top: 30px; right: -30px; }
-.petal3 { bottom: -30px; left: 60px; }
-.petal4 { top: 30px; left: -30px; }
-.center {
-    position: absolute;
-    width: 50px;
-    height: 50px;
-    background: radial-gradient(circle, #ffd700, #ff8c00);
-    border-radius: 50%;
-    top: 75px;
-    left: 75px;
-    animation: pulse 1s ease infinite;
-}
-@keyframes pulse {
-    0%,100% { transform: scale(1); }
-    50% { transform: scale(1.1); }
-}
-.stem {
-    position: absolute;
-    width: 8px;
-    height: 150px;
-    background: green;
-    bottom: -140px;
-    left: 96px;
-}
-</style>
-</head>
-<body>
-<div class="flower">
-    <div class="petal petal1"></div>
-    <div class="petal petal2"></div>
-    <div class="petal petal3"></div>
-    <div class="petal petal4"></div>
-    <div class="center"></div>
-    <div class="stem"></div>
-</div>
-</body>
-</html>
-\`\`\`
-
-Save as flower.html and open in browser! 🌷`;
-        }
-        else if (lowerMsg.includes('car')) {
-            fallbackReply = "🚗 **Car Animation Coming!** I'll help you create a car animation. Please be more specific about what kind of car animation you want!";
-        }
-        else if (lowerMsg.includes('music') || lowerMsg.includes('song')) {
-            fallbackReply = "🎵 **Music Player Coming!** I can help you create a music player website. Would you like a simple audio player or a full music streaming interface?";
-        }
-        else if (lowerMsg.includes('galaxy') || lowerMsg.includes('space')) {
-            fallbackReply = "🌌 **Galaxy Animation Coming!** I can create a beautiful spinning galaxy animation. Let me prepare the code for you!";
-        }
-        else {
-            fallbackReply = "👋 **Hello! I'm City Find AI Assistant.**\n\n🎨 **I can create:**\n• 🌸 Flowers\n• 🚗 Car animations\n• 🎵 Music players\n• 🌌 Galaxy effects\n• Any HTML/CSS you want!\n\n💰 **Business:**\n• Ads: $100-$1000/month\n• Payments: NMB 5161480052318274\n\n📞 WhatsApp: +255796323348\n\n**Just tell me what to create!**";
+        if (lowerMsg.includes('flower')) {
+            fallbackReply = "🌸 I can help you create a beautiful flower animation with HTML/CSS! Would you like the code?";
+        } else {
+            fallbackReply = "👋 Hello! I'm City Find AI Assistant.\n\n💰 Ads: $100-$1000/month\n📞 WhatsApp: +255796323348\n🏦 NMB Bank: 5161480052318274\n\nHow can I help you today?";
         }
         
         res.json({ reply: fallbackReply });
@@ -785,325 +887,4 @@ server.listen(PORT, () => {
     console.log(`📱 Admin Email: ${process.env.ADMIN_EMAIL || 'citytechuk@gmail.com'}`);
     console.log(`📞 Admin Phone: ${process.env.ADMIN_PHONE || '+255796323348'}`);
     console.log(`🏦 NMB Account: ${process.env.NMB_ACCOUNT || '5161480052318274'}`);
-});
-
-
-// ============ PAYMENT VERIFICATION SYSTEM WITH FREE TIER ============
-
-// Free tier check - user gets 1 month free on first login
-app.get('/api/check-free-tier', authMiddleware, async (req, res) => {
-    try {
-        const user = await User.findById(req.user.id);
-        
-        // Check if user already used free tier
-        if (user.freeTierUsed && user.freeTierExpiry > new Date()) {
-            return res.json({ 
-                hasFreeTier: true, 
-                expiresAt: user.freeTierExpiry,
-                message: "You have an active free tier!"
-            });
-        }
-        
-        if (!user.freeTierUsed) {
-            // Give free tier for 30 days
-            user.freeTierUsed = true;
-            user.freeTierExpiry = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-            user.isPremium = false;
-            await user.save();
-            
-            return res.json({ 
-                hasFreeTier: true, 
-                expiresAt: user.freeTierExpiry,
-                message: "Welcome! You've received 1 month free tier!"
-            });
-        }
-        
-        res.json({ hasFreeTier: false, message: "Free tier expired. Please make a payment." });
-    } catch (error) {
-        res.status(400).json({ error: error.message });
-    }
-});
-
-// Upload payment screenshot
-const paymentUpload = multer({ storage: storage });
-
-app.post('/api/payments/upload-screenshot', authMiddleware, paymentUpload.single('screenshot'), async (req, res) => {
-    try {
-        const { amount, phoneNumber, transactionId } = req.body;
-        const screenshotUrl = req.file ? req.file.path : null;
-        
-        const payment = new Payment({
-            userId: req.user.id,
-            amount: amount || 0,
-            currency: 'TZS',
-            method: 'bank_transfer',
-            transactionId: transactionId || 'PENDING_' + Date.now(),
-            status: 'pending',
-            screenshotUrl: screenshotUrl,
-            phoneNumber: phoneNumber,
-            senderName: req.user.fullName
-        });
-        
-        await payment.save();
-        
-        // Send WhatsApp notification to admin
-        const whatsappMessage = `🔔 *NEW PAYMENT UPLOADED!*\n\nUser: ${req.user.fullName}\nPhone: ${phoneNumber}\nAmount: ${amount} TZS\nTransaction ID: ${payment.transactionId}\n\nPlease verify payment and confirm.`;
-        
-        // You'll need WhatsApp Business API or Twilio
-        await sendWhatsAppMessage(process.env.ADMIN_PHONE, whatsappMessage);
-        
-        res.json({ 
-            success: true, 
-            paymentId: payment._id,
-            message: "Payment screenshot uploaded! Our team will verify within 24 hours."
-        });
-    } catch (error) {
-        res.status(400).json({ error: error.message });
-    }
-});
-
-// Admin verify payment and activate service
-app.post('/api/admin/verify-payment', authMiddleware, adminMiddleware, async (req, res) => {
-    try {
-        const { paymentId, action } = req.body;
-        const payment = await Payment.findById(paymentId).populate('userId');
-        
-        if (!payment) return res.status(404).json({ error: 'Payment not found' });
-        
-        if (action === 'approve') {
-            payment.status = 'completed';
-            payment.verifiedAt = new Date();
-            await payment.save();
-            
-            // Activate premium for user (1 month)
-            payment.userId.isPremium = true;
-            payment.userId.premiumExpiry = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-            await payment.userId.save();
-            
-            // Send WhatsApp confirmation to user
-            const confirmMessage = `✅ *PAYMENT CONFIRMED!*\n\nDear ${payment.userId.fullName},\n\nYour payment has been verified! Your premium account is now ACTIVE for 30 days.\n\nThank you for choosing City Find! 🚀`;
-            await sendWhatsAppMessage(payment.userId.phone, confirmMessage);
-            
-            res.json({ success: true, message: "Payment verified! User premium activated." });
-        } else if (action === 'reject') {
-            payment.status = 'failed';
-            payment.rejectionReason = req.body.reason;
-            await payment.save();
-            
-            const rejectMessage = `❌ *PAYMENT REJECTED*\n\nDear ${payment.userId.fullName},\n\nYour payment could not be verified. Please contact us for assistance.\n\nWhatsApp: +255796323348`;
-            await sendWhatsAppMessage(payment.userId.phone, rejectMessage);
-            
-            res.json({ success: true, message: "Payment rejected." });
-        }
-    } catch (error) {
-        res.status(400).json({ error: error.message });
-    }
-});
-
-// User check payment status
-app.get('/api/payments/status', authMiddleware, async (req, res) => {
-    try {
-        const payments = await Payment.find({ userId: req.user.id }).sort({ createdAt: -1 });
-        const user = await User.findById(req.user.id);
-        
-        res.json({
-            payments: payments,
-            isPremium: user.isPremium || false,
-            premiumExpiry: user.premiumExpiry,
-            freeTierUsed: user.freeTierUsed,
-            freeTierExpiry: user.freeTierExpiry
-        });
-    } catch (error) {
-        res.status(400).json({ error: error.message });
-    }
-});
-
-// WhatsApp webhook for incoming messages (to verify payments)
-app.post('/api/whatsapp-webhook', async (req, res) => {
-    try {
-        const { from, message, mediaUrl } = req.body;
-        
-        // Check if message contains payment confirmation
-        if (message.toLowerCase().includes('confirmed') || message.toLowerCase().includes('thibitisha')) {
-            // Extract transaction ID from message
-            const transactionMatch = message.match(/TXN[0-9]+/i);
-            if (transactionMatch) {
-                const payment = await Payment.findOne({ transactionId: transactionMatch[0] });
-                if (payment && payment.status === 'pending') {
-                    payment.status = 'completed';
-                    payment.verifiedAt = new Date();
-                    await payment.save();
-                    
-                    // Activate premium
-                    const user = await User.findById(payment.userId);
-                    user.isPremium = true;
-                    user.premiumExpiry = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-                    await user.save();
-                    
-                    await sendWhatsAppMessage(from, `✅ Payment confirmed! Your premium is active for 30 days.`);
-                }
-            }
-        }
-        
-        res.json({ success: true });
-    } catch (error) {
-        res.status(400).json({ error: error.message });
-    }
-});
-
-// Helper function to send WhatsApp messages (using WhatsApp Business API or Green API)
-async function sendWhatsAppMessage(phoneNumber, message) {
-    try {
-        // If you have Green API or WhatsApp Business API, put here
-        console.log(`WhatsApp to ${phoneNumber}: ${message}`);
-        
-        // Example with Green API (you'll need to sign up)
-        // const GREEN_API_URL = process.env.GREEN_API_URL;
-        // const GREEN_API_TOKEN = process.env.GREEN_API_TOKEN;
-        // await axios.post(`${GREEN_API_URL}/sendMessage`, {
-        //     phone: phoneNumber,
-        //     message: message
-        // }, {
-        //     headers: { Authorization: `Bearer ${GREEN_API_TOKEN}` }
-        // });
-        
-        return true;
-    } catch (error) {
-        console.error('WhatsApp send error:', error);
-        return false;
-    }
-}
-
-// ============ FREE TIER & PAYMENT ROUTES ============
-
-// Check free tier status
-app.get('/api/check-free-tier', authMiddleware, async (req, res) => {
-    try {
-        const user = await User.findById(req.user.id);
-        const now = new Date();
-        
-        // Check if user already has active free tier
-        if (user.freeTierExpiry && user.freeTierExpiry > now) {
-            return res.json({ 
-                hasFreeTier: true, 
-                expiresAt: user.freeTierExpiry,
-                message: "You have an active free tier!"
-            });
-        }
-        
-        // If user never had free tier, give them 30 days
-        if (!user.freeTierUsed) {
-            user.freeTierUsed = true;
-            user.freeTierExpiry = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-            await user.save();
-            
-            return res.json({ 
-                hasFreeTier: true, 
-                expiresAt: user.freeTierExpiry,
-                message: "Welcome! You've received 1 month free tier!"
-            });
-        }
-        
-        res.json({ hasFreeTier: false, message: "Free tier expired. Please make a payment." });
-    } catch (error) {
-        res.status(400).json({ error: error.message });
-    }
-});
-
-// Upload payment screenshot
-const paymentUpload = multer({ storage: storage });
-app.post('/api/payments/upload-screenshot', authMiddleware, paymentUpload.single('screenshot'), async (req, res) => {
-    try {
-        const { amount, phoneNumber, transactionId } = req.body;
-        const screenshotUrl = req.file ? req.file.path : null;
-        
-        const payment = new Payment({
-            orderId: null,
-            amount: amount || 0,
-            currency: 'TZS',
-            method: 'bank_transfer',
-            transactionId: transactionId || 'PENDING_' + Date.now(),
-            status: 'pending',
-            senderAccount: phoneNumber,
-            receiverAccount: process.env.NMB_ACCOUNT || '5161480052318274',
-            senderName: req.user.fullName,
-            receiverName: 'City Tech Holdings'
-        });
-        
-        await payment.save();
-        
-        // You can add WhatsApp notification here
-        console.log(`📱 Payment uploaded by ${req.user.fullName}: ${amount} TZS`);
-        
-        res.json({ 
-            success: true, 
-            paymentId: payment._id,
-            message: "Payment screenshot uploaded! Our team will verify within 24 hours."
-        });
-    } catch (error) {
-        res.status(400).json({ error: error.message });
-    }
-});
-
-// Get payment status
-app.get('/api/payments/status', authMiddleware, async (req, res) => {
-    try {
-        const payments = await Payment.find({ senderName: req.user.fullName }).sort({ createdAt: -1 });
-        const user = await User.findById(req.user.id);
-        
-        res.json({
-            payments: payments.map(p => ({
-                amount: p.amount,
-                status: p.status,
-                createdAt: p.createdAt
-            })),
-            isPremium: user.isPremium || false,
-            premiumExpiry: user.premiumExpiry
-        });
-    } catch (error) {
-        res.status(400).json({ error: error.message });
-    }
-});
-
-// Submit rating for company
-app.post('/api/ratings/company', authMiddleware, async (req, res) => {
-    try {
-        const { companyId, orderId, rating, comment, deliveryOnTime, qualityMatched, communication } = req.body;
-        
-        const ratingRecord = new CompanyRating({
-            companyId,
-            reviewerId: req.user.id,
-            orderId: orderId || 'test_order_' + Date.now(),
-            rating: rating,
-            comment: comment || '',
-            deliveryOnTime: deliveryOnTime || true,
-            qualityMatched: qualityMatched || true,
-            communication: communication || rating
-        });
-        await ratingRecord.save();
-        
-        // Update company's average rating
-        const avgRating = await CompanyRating.aggregate([
-            { $match: { companyId: companyId } },
-            { $group: { _id: null, avg: { $avg: '$rating' } } }
-        ]);
-        
-        await User.findByIdAndUpdate(companyId, { rating: avgRating[0]?.avg || rating });
-        
-        res.json({ success: true, message: "Rating submitted successfully!" });
-    } catch (error) {
-        res.status(400).json({ error: error.message });
-    }
-});
-
-// Get ratings for a company
-app.get('/api/ratings/company/:companyId', async (req, res) => {
-    try {
-        const ratings = await CompanyRating.find({ companyId: req.params.companyId })
-            .populate('reviewerId', 'fullName')
-            .sort({ createdAt: -1 });
-        res.json(ratings);
-    } catch (error) {
-        res.status(400).json({ error: error.message });
-    }
 });
