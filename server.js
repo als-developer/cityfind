@@ -667,7 +667,7 @@ app.get('/api/receiver/stats', authMiddleware, async (req, res) => {
 });
 
 // ============ AI BOT ROUTE ============
-git add server.js
+
 git commit -m "Fix AI Bot with Gemini 1.5 Flash"
 git push heroku main
 heroku restart --app cityfind
