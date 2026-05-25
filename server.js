@@ -548,18 +548,94 @@ app.get('/api/ratings/company/:companyId', async (req, res) => {
 });
 
 // ============ AI BOT ROUTE - SIMPLE VERSION ============
-// ============ AI BOT ROUTE - SIMPLE BOT (WORKING) ============
+// // ============ AI BOT ROUTE - WITH DEEPSEEK API ============
+const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY;
+
 app.post('/api/bot/chat', async (req, res) => {
     try {
         const { message, language } = req.body;
         
-        const lowerMsg = (message || '').toLowerCase();
-        let reply = '';
+        console.log('🤖 User asked:', message);
         
-        // Create HTML for flower
-        if (lowerMsg.includes('create html') || (lowerMsg.includes('frower') || lowerMsg.includes('flower'))) {
-            reply = `🌸 **Here's a simple flower HTML/CSS:** 🌸
-            
+        // DeepSeek API endpoint
+        const apiUrl = "https://api.deepseek.com/v1/chat/completions";
+        
+        const response = await axios.post(
+            apiUrl,
+            {
+                model: "deepseek-chat",
+                messages: [
+                    {
+                        role: "system",
+                        content: `You are City Find AI Assistant - a helpful business assistant for a Tanzanian company.
+
+COMPANY INFO:
+- Name: City Find (by City Tech Holdings)
+- WhatsApp/Phone: +255796323348
+- Email: citytechuk@gmail.com
+- Bank: NMB Bank Tanzania
+- Account Name: City Tech Holdings  
+- Account Number: 5161480052318274
+- SWIFT: NMBCTZTZ
+
+SERVICES & PRICING:
+- Banner Ads: $100 per month
+- Featured Ads: $500 per month
+- Sponsored Ads: $1,000 per month
+- Delivery Tracking: Free
+- Quality Check: Free (with video verification)
+
+CAPABILITIES:
+- Can create HTML/CSS/JavaScript code for websites, animations, and applications
+- Can create flower animations, car animations, music players, galaxy effects, and more
+- Can help with business inquiries about ads, payments, tracking, and quality checks
+
+INSTRUCTIONS:
+1. If user asks to CREATE something (HTML, CSS, website, animation, flower, car, music, galaxy), provide COMPLETE working code
+2. Answer in ${language === 'sw' ? 'Swahili (Kiswahili)' : 'English'}
+3. Be friendly, helpful, and professional
+4. For HTML/CSS requests, give full code inside triple backticks
+5. Keep responses helpful and concise`
+                    },
+                    {
+                        role: "user",
+                        content: message
+                    }
+                ],
+                temperature: 0.7,
+                max_tokens: 2000
+            },
+            {
+                headers: { 
+                    Authorization: `Bearer ${DEEPSEEK_API_KEY}`,
+                    'Content-Type': 'application/json'
+                },
+                timeout: 30000
+            }
+        );
+        
+        if (response.data && response.data.choices && response.data.choices[0]) {
+            const botReply = response.data.choices[0].message.content;
+            console.log('✅ DeepSeek API responded successfully');
+            return res.json({ reply: botReply });
+        }
+        
+        throw new Error('No response from DeepSeek');
+        
+    } catch (error) {
+        console.error('❌ DeepSeek API Error:', error.message);
+        if (error.response) {
+            console.error('API Response:', error.response.data);
+        }
+        
+        // Fallback response for HTML/CSS creation
+        const lowerMsg = (message || '').toLowerCase();
+        let fallbackReply = "";
+        
+        // HTML/CSS creation fallbacks
+        if (lowerMsg.includes('flower') || (lowerMsg.includes('frower'))) {
+            fallbackReply = `🌸 **Beautiful Flower HTML/CSS** 🌸
+
 \`\`\`html
 <!DOCTYPE html>
 <html>
@@ -567,26 +643,21 @@ app.post('/api/bot/chat', async (req, res) => {
 <style>
 body {
     background: linear-gradient(135deg, #0a0f2a, #000);
+    min-height: 100vh;
     display: flex;
     justify-content: center;
     align-items: center;
-    min-height: 100vh;
-    font-family: Arial, sans-serif;
 }
-
 .flower {
     position: relative;
     width: 200px;
     height: 200px;
-    margin: 50px auto;
-    animation: float 3s ease-in-out infinite;
+    animation: float 3s ease infinite;
 }
-
 @keyframes float {
-    0%, 100% { transform: translateY(0px); }
+    0%,100% { transform: translateY(0); }
     50% { transform: translateY(-20px); }
 }
-
 .petal {
     position: absolute;
     width: 80px;
@@ -595,13 +666,10 @@ body {
     border-radius: 50%;
     box-shadow: 0 0 20px rgba(255,105,180,0.5);
 }
-
 .petal1 { top: -30px; left: 60px; }
 .petal2 { top: 30px; right: -30px; }
 .petal3 { bottom: -30px; left: 60px; }
 .petal4 { top: 30px; left: -30px; }
-.petal5 { top: 0px; left: 60px; background: radial-gradient(circle, #ff4500, #ff6347); }
-
 .center {
     position: absolute;
     width: 50px;
@@ -610,118 +678,51 @@ body {
     border-radius: 50%;
     top: 75px;
     left: 75px;
-    box-shadow: 0 0 15px rgba(255,215,0,0.8);
-    animation: pulse 1s ease-in-out infinite;
+    animation: pulse 1s ease infinite;
 }
-
 @keyframes pulse {
-    0%, 100% { transform: scale(1); }
+    0%,100% { transform: scale(1); }
     50% { transform: scale(1.1); }
 }
-
 .stem {
     position: absolute;
     width: 8px;
     height: 150px;
-    background: linear-gradient(180deg, #228b22, #006400);
+    background: green;
     bottom: -140px;
     left: 96px;
-    border-radius: 4px;
-}
-
-.leaf {
-    position: absolute;
-    width: 40px;
-    height: 20px;
-    background: #228b22;
-    border-radius: 50%;
-    bottom: -90px;
-    left: 70px;
-    transform: rotate(-45deg);
-}
-
-.leaf2 {
-    left: 85px;
-    bottom: -110px;
-    transform: rotate(45deg);
-}
-
-h2 {
-    text-align: center;
-    color: white;
-    margin-top: 150px;
 }
 </style>
 </head>
 <body>
-<div>
-    <div class="flower">
-        <div class="petal petal1"></div>
-        <div class="petal petal2"></div>
-        <div class="petal petal3"></div>
-        <div class="petal petal4"></div>
-        <div class="petal petal5"></div>
-        <div class="center"></div>
-        <div class="stem"></div>
-        <div class="leaf"></div>
-        <div class="leaf leaf2"></div>
-    </div>
-    <h2>🌸 Beautiful Flower for You! 🌸</h2>
+<div class="flower">
+    <div class="petal petal1"></div>
+    <div class="petal petal2"></div>
+    <div class="petal petal3"></div>
+    <div class="petal petal4"></div>
+    <div class="center"></div>
+    <div class="stem"></div>
 </div>
 </body>
 </html>
 \`\`\`
 
-Copy this code and save as flower.html to see the animation! 🌷`;
+Save as flower.html and open in browser! 🌷`;
         }
-        // Personal greetings
-        else if (lowerMsg.includes('mambo') || lowerMsg.includes('vipi') || lowerMsg.includes('habari')) {
-            reply = "Poa! Mambo yako? 😊 Niko hapa kukusaidia kwa huduma zetu! Unahitaji kujua nini?";
+        else if (lowerMsg.includes('car')) {
+            fallbackReply = "🚗 **Car Animation Coming!** I'll help you create a car animation. Please be more specific about what kind of car animation you want!";
         }
-        else if (lowerMsg.includes('hey') || lowerMsg.includes('hello') || lowerMsg.includes('hi')) {
-            reply = "Hey! 👋 Welcome to City Find AI Assistant. How can I help you today?";
+        else if (lowerMsg.includes('music') || lowerMsg.includes('song')) {
+            fallbackReply = "🎵 **Music Player Coming!** I can help you create a music player website. Would you like a simple audio player or a full music streaming interface?";
         }
-        else if (lowerMsg.includes('unaitwa nani') || lowerMsg.includes('jina lako')) {
-            reply = "Naitwa **City Find AI Assistant**! Ninakusaidia kuhusu matangazo, malipo, kufuatilia delivery, na quality checks. 😊";
+        else if (lowerMsg.includes('galaxy') || lowerMsg.includes('space')) {
+            fallbackReply = "🌌 **Galaxy Animation Coming!** I can create a beautiful spinning galaxy animation. Let me prepare the code for you!";
         }
-        else if (lowerMsg.includes('how are you')) {
-            reply = "I'm doing great! Thanks for asking! 😊 Ready to help you with your business needs. What can I do for you today?";
-        }
-        // Pricing
-        else if (lowerMsg.includes('bei') || lowerMsg.includes('price') || lowerMsg.includes('gharama') || lowerMsg.includes('kiasi')) {
-            reply = "💰 **Bei za Matangazo:**\n\n• **Banner Ads:** $100 kwa mwezi\n• **Featured Ads:** $500 kwa mwezi\n• **Sponsored Ads:** $1,000 kwa mwezi\n\nKwa maelezo zaidi, wasiliana nasi kwenye WhatsApp: +255796323348";
-        }
-        // Payments
-        else if (lowerMsg.includes('lipa') || lowerMsg.includes('payment') || lowerMsg.includes('malipo') || lowerMsg.includes('bank')) {
-            reply = "🏦 **Maelezo ya Malipo:**\n\nBenki: NMB Bank\nJina la Akaunti: City Tech Holdings\nNamba ya Akaunti: 5161480052318274\nSWIFT: NMBCTZTZ\n\n💵 **Njia za Malipo:**\n• Direct Bank Transfer\n• Mobile Money (M-Pesa, Tigo Pesa, Airtel Money)\n• Cash on Delivery\n\nBaada ya malipo, tuna proof yako kwa WhatsApp: +255796323348";
-        }
-        // Refund
-        else if (lowerMsg.includes('refund') || lowerMsg.includes('rejesha') || lowerMsg.includes('pesa yangu')) {
-            reply = "💰 **Kuhusu Refund (Kurejeshewa Pesa):**\n\nPesa yako itarejeshwa na **City Tech Holdings** kupitia NMB Bank.\n\n📌 **Mchakato:**\n1. Fanya quality check (video + picha)\n2. Kama bidhaa hailingani, tunachakata ombi lako\n3. Pesa inarejeshwa ndani ya siku 1-3\n\nKwa msaada zaidi, WhatsApp: +255796323348";
-        }
-        // Contact
-        else if (lowerMsg.includes('simu') || lowerMsg.includes('phone') || lowerMsg.includes('contact') || lowerMsg.includes('wasiliana')) {
-            reply = "📞 **Mawasiliano Yetu:**\n\nWhatsApp/Simu: +255796323348\nBarua Pepe: citytechuk@gmail.com\n\nTunapatikana 24/7 kwa maswali yako yote!";
-        }
-        // Tracking
-        else if (lowerMsg.includes('track') || lowerMsg.includes('fuatilia') || lowerMsg.includes('order')) {
-            reply = "📦 **Kufuatilia Order Yako:**\n\nNenda kwenye sehemu ya 'Track' kwenye website yetu na ingiza namba yako ya order (inaanza na ORD).\n\nAu tuma namba yako ya order hapa nikusaidie kufuatilia!";
-        }
-        // Quality check
-        else if (lowerMsg.includes('quality') || lowerMsg.includes('ubora') || lowerMsg.includes('check')) {
-            reply = "✅ **Quality Check Process:**\n\n1. Pokea bidhaa yako\n2. Rekodi video fupi (sekunde 10-20) ikionyesha bidhaa\n3. Piga picha 2-3 za bidhaa\n4. Tembelea sehemu ya 'Quality Check' kwenye website yako\n5. Pakia video na picha\n\nKama bidhaa hailingani, utalipwa pesa yako tena ndani ya siku 3!";
-        }
-        // Default
         else {
-            reply = "👋 **Hello! I'm City Find AI Assistant.**\n\nI can help you with:\n• 💰 **Bei za Matangazo** - $100, $500, $1000 kwa mwezi\n• 📦 **Kufuatilia delivery** - Tuma order number yako\n• 💳 **Malipo** - NMB Bank: 5161480052318274\n• ✅ **Quality check** - Ukaguzi wa bidhaa kwa video\n• 🔄 **Refund** - Kurejeshewa pesa\n• 🎨 **Create HTML/CSS** - Tuma ombi lako!\n\n📞 WhatsApp: +255796323348\n📧 Email: citytechuk@gmail.com\n\n**Niulize swali lolote!** Unaweza kuuliza kwa Kiswahili au Kiingereza.";
+            fallbackReply = "👋 **Hello! I'm City Find AI Assistant.**\n\n🎨 **I can create:**\n• 🌸 Flowers\n• 🚗 Car animations\n• 🎵 Music players\n• 🌌 Galaxy effects\n• Any HTML/CSS you want!\n\n💰 **Business:**\n• Ads: $100-$1000/month\n• Payments: NMB 5161480052318274\n\n📞 WhatsApp: +255796323348\n\n**Just tell me what to create!**";
         }
         
-        res.json({ reply: reply });
-    } catch (error) {
-        console.error('Bot Error:', error.message);
-        res.json({ 
-            reply: "Samahani, kuna tatizo. Tafadhali wasiliana nasi kwenye WhatsApp: +255796323348 kwa msaada wa haraka." 
-        });
+        res.json({ reply: fallbackReply });
     }
 });
 
