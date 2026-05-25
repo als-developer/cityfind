@@ -548,106 +548,180 @@ app.get('/api/ratings/company/:companyId', async (req, res) => {
 });
 
 // ============ AI BOT ROUTE - SIMPLE VERSION ============
-// ============ AI BOT ROUTE - WITH HUGGING FACE API (FREE) ============
-const HF_API_KEY = process.env.HF_API_KEY;
-
+// ============ AI BOT ROUTE - SIMPLE BOT (WORKING) ============
 app.post('/api/bot/chat', async (req, res) => {
     try {
         const { message, language } = req.body;
         
-        console.log('🤖 User asked:', message);
-        
-        // Hugging Face Free API - using Flan T5 model (bure kabisa)
-        const apiUrl = "https://api-inference.huggingface.co/models/google/flan-t5-base";
-        
-        const prompt = `You are City Find AI Assistant, a business helper for a Tanzanian company.
-        
-Company Info:
-- Name: City Find (by City Tech Holdings)
-- Phone/WhatsApp: +255796323348
-- Email: citytechuk@gmail.com
-- Bank: NMB Bank Tanzania, Account: 5161480052318274, Name: City Tech Holdings
-
-Services & Pricing:
-- Banner Ads: $100 per month
-- Featured Ads: $500 per month
-- Sponsored Ads: $1000 per month
-- Delivery tracking: Free
-- Quality check: Free
-
-User question: ${message}
-
-Answer briefly and helpfully in ${language === 'sw' ? 'Swahili' : 'English'}.`;
-        
-        const response = await axios.post(
-            apiUrl,
-            {
-                inputs: prompt,
-                parameters: {
-                    max_length: 250,
-                    temperature: 0.7,
-                    do_sample: true
-                }
-            },
-            {
-                headers: { 
-                    Authorization: `Bearer ${HF_API_KEY}`,
-                    'Content-Type': 'application/json'
-                },
-                timeout: 15000
-            }
-        );
-        
-        if (response.data && response.data[0] && response.data[0].generated_text) {
-            let botReply = response.data[0].generated_text;
-            // Clean up the response
-            botReply = botReply.replace(prompt, '').trim();
-            if (!botReply) botReply = "Thank you for your question! Please contact us on WhatsApp: +255796323348 for more details.";
-            console.log('✅ Hugging Face responded successfully');
-            return res.json({ reply: botReply });
-        }
-        
-        throw new Error('No valid response from Hugging Face');
-        
-    } catch (error) {
-        console.error('❌ HF API Error:', error.message);
-        if (error.response) {
-            console.error('API Response:', error.response.data);
-        }
-        
-        // Fallback response - same as before
         const lowerMsg = (message || '').toLowerCase();
-        let fallbackReply = "";
+        let reply = '';
         
-        if (lowerMsg.includes('bei') || lowerMsg.includes('price') || lowerMsg.includes('gharama')) {
-            fallbackReply = "💰 **Bei za Matangazo:**\n• Banner: $100 kwa mwezi\n• Featured: $500 kwa mwezi\n• Sponsored: $1,000 kwa mwezi\n\nKwa maelezo zaidi, WhatsApp: +255796323348";
+        // Create HTML for flower
+        if (lowerMsg.includes('create html') || (lowerMsg.includes('frower') || lowerMsg.includes('flower'))) {
+            reply = `🌸 **Here's a simple flower HTML/CSS:** 🌸
+            
+\`\`\`html
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+body {
+    background: linear-gradient(135deg, #0a0f2a, #000);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    font-family: Arial, sans-serif;
+}
+
+.flower {
+    position: relative;
+    width: 200px;
+    height: 200px;
+    margin: 50px auto;
+    animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-20px); }
+}
+
+.petal {
+    position: absolute;
+    width: 80px;
+    height: 80px;
+    background: radial-gradient(circle, #ff69b4, #ff1493);
+    border-radius: 50%;
+    box-shadow: 0 0 20px rgba(255,105,180,0.5);
+}
+
+.petal1 { top: -30px; left: 60px; }
+.petal2 { top: 30px; right: -30px; }
+.petal3 { bottom: -30px; left: 60px; }
+.petal4 { top: 30px; left: -30px; }
+.petal5 { top: 0px; left: 60px; background: radial-gradient(circle, #ff4500, #ff6347); }
+
+.center {
+    position: absolute;
+    width: 50px;
+    height: 50px;
+    background: radial-gradient(circle, #ffd700, #ff8c00);
+    border-radius: 50%;
+    top: 75px;
+    left: 75px;
+    box-shadow: 0 0 15px rgba(255,215,0,0.8);
+    animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+}
+
+.stem {
+    position: absolute;
+    width: 8px;
+    height: 150px;
+    background: linear-gradient(180deg, #228b22, #006400);
+    bottom: -140px;
+    left: 96px;
+    border-radius: 4px;
+}
+
+.leaf {
+    position: absolute;
+    width: 40px;
+    height: 20px;
+    background: #228b22;
+    border-radius: 50%;
+    bottom: -90px;
+    left: 70px;
+    transform: rotate(-45deg);
+}
+
+.leaf2 {
+    left: 85px;
+    bottom: -110px;
+    transform: rotate(45deg);
+}
+
+h2 {
+    text-align: center;
+    color: white;
+    margin-top: 150px;
+}
+</style>
+</head>
+<body>
+<div>
+    <div class="flower">
+        <div class="petal petal1"></div>
+        <div class="petal petal2"></div>
+        <div class="petal petal3"></div>
+        <div class="petal petal4"></div>
+        <div class="petal petal5"></div>
+        <div class="center"></div>
+        <div class="stem"></div>
+        <div class="leaf"></div>
+        <div class="leaf leaf2"></div>
+    </div>
+    <h2>🌸 Beautiful Flower for You! 🌸</h2>
+</div>
+</body>
+</html>
+\`\`\`
+
+Copy this code and save as flower.html to see the animation! 🌷`;
         }
-        else if (lowerMsg.includes('lipa') || lowerMsg.includes('payment') || lowerMsg.includes('malipo') || lowerMsg.includes('bank')) {
-            fallbackReply = "🏦 **Maelezo ya Malipo:**\n\nBenki: NMB Bank\nJina la Akaunti: City Tech Holdings\nNamba ya Akaunti: 5161480052318274\nSWIFT: NMBCTZTZ\n\nBaada ya malipo, tuna proof yako kwa WhatsApp: +255796323348";
+        // Personal greetings
+        else if (lowerMsg.includes('mambo') || lowerMsg.includes('vipi') || lowerMsg.includes('habari')) {
+            reply = "Poa! Mambo yako? 😊 Niko hapa kukusaidia kwa huduma zetu! Unahitaji kujua nini?";
         }
-        else if (lowerMsg.includes('refund') || lowerMsg.includes('rejesha') || lowerMsg.includes('reimburse')) {
-            fallbackReply = "💰 **Kuhusu Refund (Kurejeshewa Pesa):**\n\nPesa yako itarejeshwa na **City Tech Holdings** kupitia NMB Bank (Akaunti: 5161480052318274).\n\n📌 **Mchakato:**\n1. Ukifanya quality check na bidhaa hailingani\n2. Tunachakata ombi lako ndani ya saa 24\n3. Pesa inarejeshwa ndani ya siku 1-3\n\nKwa msaada zaidi, WhatsApp: +255796323348";
+        else if (lowerMsg.includes('hey') || lowerMsg.includes('hello') || lowerMsg.includes('hi')) {
+            reply = "Hey! 👋 Welcome to City Find AI Assistant. How can I help you today?";
         }
-        else if (lowerMsg.includes('simu') || lowerMsg.includes('phone') || lowerMsg.includes('contact')) {
-            fallbackReply = "📞 **Mawasiliano Yetu:**\n\nWhatsApp/Simu: +255796323348\nBarua Pepe: citytechuk@gmail.com\n\nTunapatikana 24/7!";
-        }
-        else if (lowerMsg.includes('track') || lowerMsg.includes('fuatilia')) {
-            fallbackReply = "📦 **Kufuatilia Order Yako:**\nNenda kwenye sehemu ya 'Track' na ingiza namba yako ya order (inaanza na ORD).";
-        }
-        else if (lowerMsg.includes('quality') || lowerMsg.includes('ubora')) {
-            fallbackReply = "✅ **Quality Check Process:**\n1. Pokea bidhaa\n2. Rekodi video fupi\n3. Piga picha\n4. Pakia kwenye website\n5. Kama bidhaa hailingani, utarejeshewa pesa ndani ya siku 3";
-        }
-        else if (lowerMsg.includes('unaitwa nani') || lowerMsg.includes('who are you')) {
-            fallbackReply = "Naitwa **City Find AI Assistant**! Ninakusaidia kuhusu matangazo, malipo, na kufuatilia delivery. 😊";
+        else if (lowerMsg.includes('unaitwa nani') || lowerMsg.includes('jina lako')) {
+            reply = "Naitwa **City Find AI Assistant**! Ninakusaidia kuhusu matangazo, malipo, kufuatilia delivery, na quality checks. 😊";
         }
         else if (lowerMsg.includes('how are you')) {
-            fallbackReply = "I'm doing great! Thanks for asking! 😊 How can I help you with your business today?";
+            reply = "I'm doing great! Thanks for asking! 😊 Ready to help you with your business needs. What can I do for you today?";
         }
+        // Pricing
+        else if (lowerMsg.includes('bei') || lowerMsg.includes('price') || lowerMsg.includes('gharama') || lowerMsg.includes('kiasi')) {
+            reply = "💰 **Bei za Matangazo:**\n\n• **Banner Ads:** $100 kwa mwezi\n• **Featured Ads:** $500 kwa mwezi\n• **Sponsored Ads:** $1,000 kwa mwezi\n\nKwa maelezo zaidi, wasiliana nasi kwenye WhatsApp: +255796323348";
+        }
+        // Payments
+        else if (lowerMsg.includes('lipa') || lowerMsg.includes('payment') || lowerMsg.includes('malipo') || lowerMsg.includes('bank')) {
+            reply = "🏦 **Maelezo ya Malipo:**\n\nBenki: NMB Bank\nJina la Akaunti: City Tech Holdings\nNamba ya Akaunti: 5161480052318274\nSWIFT: NMBCTZTZ\n\n💵 **Njia za Malipo:**\n• Direct Bank Transfer\n• Mobile Money (M-Pesa, Tigo Pesa, Airtel Money)\n• Cash on Delivery\n\nBaada ya malipo, tuna proof yako kwa WhatsApp: +255796323348";
+        }
+        // Refund
+        else if (lowerMsg.includes('refund') || lowerMsg.includes('rejesha') || lowerMsg.includes('pesa yangu')) {
+            reply = "💰 **Kuhusu Refund (Kurejeshewa Pesa):**\n\nPesa yako itarejeshwa na **City Tech Holdings** kupitia NMB Bank.\n\n📌 **Mchakato:**\n1. Fanya quality check (video + picha)\n2. Kama bidhaa hailingani, tunachakata ombi lako\n3. Pesa inarejeshwa ndani ya siku 1-3\n\nKwa msaada zaidi, WhatsApp: +255796323348";
+        }
+        // Contact
+        else if (lowerMsg.includes('simu') || lowerMsg.includes('phone') || lowerMsg.includes('contact') || lowerMsg.includes('wasiliana')) {
+            reply = "📞 **Mawasiliano Yetu:**\n\nWhatsApp/Simu: +255796323348\nBarua Pepe: citytechuk@gmail.com\n\nTunapatikana 24/7 kwa maswali yako yote!";
+        }
+        // Tracking
+        else if (lowerMsg.includes('track') || lowerMsg.includes('fuatilia') || lowerMsg.includes('order')) {
+            reply = "📦 **Kufuatilia Order Yako:**\n\nNenda kwenye sehemu ya 'Track' kwenye website yetu na ingiza namba yako ya order (inaanza na ORD).\n\nAu tuma namba yako ya order hapa nikusaidie kufuatilia!";
+        }
+        // Quality check
+        else if (lowerMsg.includes('quality') || lowerMsg.includes('ubora') || lowerMsg.includes('check')) {
+            reply = "✅ **Quality Check Process:**\n\n1. Pokea bidhaa yako\n2. Rekodi video fupi (sekunde 10-20) ikionyesha bidhaa\n3. Piga picha 2-3 za bidhaa\n4. Tembelea sehemu ya 'Quality Check' kwenye website yako\n5. Pakia video na picha\n\nKama bidhaa hailingani, utalipwa pesa yako tena ndani ya siku 3!";
+        }
+        // Default
         else {
-            fallbackReply = "👋 Hello! I'm City Find AI Assistant.\n\nI can help you with:\n• 💰 **Bei za Matangazo** - $100, $500, $1000 kwa mwezi\n• 📦 **Kufuatilia delivery** - Tuma order number yako\n• 💳 **Malipo** - NMB Bank: 5161480052318274\n• ✅ **Quality check** - Ukaguzi wa bidhaa kwa video\n• 🔄 **Refund** - Kurejeshewa pesa\n\n📞 WhatsApp: +255796323348\n📧 Email: citytechuk@gmail.com\n\nNiulize swali lolote!";
+            reply = "👋 **Hello! I'm City Find AI Assistant.**\n\nI can help you with:\n• 💰 **Bei za Matangazo** - $100, $500, $1000 kwa mwezi\n• 📦 **Kufuatilia delivery** - Tuma order number yako\n• 💳 **Malipo** - NMB Bank: 5161480052318274\n• ✅ **Quality check** - Ukaguzi wa bidhaa kwa video\n• 🔄 **Refund** - Kurejeshewa pesa\n• 🎨 **Create HTML/CSS** - Tuma ombi lako!\n\n📞 WhatsApp: +255796323348\n📧 Email: citytechuk@gmail.com\n\n**Niulize swali lolote!** Unaweza kuuliza kwa Kiswahili au Kiingereza.";
         }
         
-        res.json({ reply: fallbackReply });
+        res.json({ reply: reply });
+    } catch (error) {
+        console.error('Bot Error:', error.message);
+        res.json({ 
+            reply: "Samahani, kuna tatizo. Tafadhali wasiliana nasi kwenye WhatsApp: +255796323348 kwa msaada wa haraka." 
+        });
     }
 });
 
