@@ -8,12 +8,35 @@
     <meta name="author" content="City Tech Holdings">
     <meta name="robots" content="index, follow">
     <title>City Find | Global Business Platform</title>
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2fe">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="City Find">
+    <link rel="apple-touch-icon" href="/icons/icon-152x152.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192x192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512x512.png">
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.socket.io/4.6.2/socket.io.min.js"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    
+    <!-- Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(registration => console.log('Service Worker registered:', registration.scope))
+                    .catch(error => console.log('Service Worker failed:', error));
+            });
+        }
+    </script>
+    
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -135,6 +158,15 @@
         }
         .share-btn:hover {
             transform: scale(1.05);
+        }
+        
+        /* PWA Install Banner Animation */
+        @keyframes slideUp {
+            from { transform: translateY(100px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .install-banner {
+            animation: slideUp 0.5s ease;
         }
     </style>
 </head>
@@ -428,6 +460,18 @@
         </div>
     </div>
 
+    <!-- PWA Install Banner -->
+    <div id="installBanner" style="position: fixed; bottom: 20px; left: 20px; right: 20px; background: linear-gradient(135deg, #00f2fe, #9b51e0); border-radius: 16px; padding: 16px; display: none; align-items: center; justify-content: space-between; z-index: 1001; box-shadow: 0 10px 40px rgba(0,0,0,0.3);" class="install-banner">
+        <div>
+            <strong><i class="fas fa-download"></i> Install City Find App</strong>
+            <p style="font-size: 12px; margin-top: 4px;">Install on your device for faster access</p>
+        </div>
+        <div>
+            <button id="installBtn" style="background: white; color: #9b51e0; border: none; padding: 10px 20px; border-radius: 30px; font-weight: bold; cursor: pointer;">Install</button>
+            <button id="closeInstall" style="background: transparent; border: none; color: white; font-size: 20px; cursor: pointer; margin-left: 10px;"><i class="fas fa-times"></i></button>
+        </div>
+    </div>
+
     <!-- Notification Container -->
     <div id="notificationContainer" class="fixed top-20 right-4 z-50 space-y-2"></div>
 
@@ -500,6 +544,38 @@
         let authMode = 'login';
         let map, marker, watchId;
         let localStream, peerConnection;
+        let deferredPrompt;
+        
+        // PWA Install Prompt
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            const banner = document.getElementById('installBanner');
+            if (banner) banner.style.display = 'flex';
+        });
+        
+        const installBtn = document.getElementById('installBtn');
+        const closeInstall = document.getElementById('closeInstall');
+        
+        if (installBtn) {
+            installBtn.addEventListener('click', async () => {
+                if (deferredPrompt) {
+                    deferredPrompt.prompt();
+                    const { outcome } = await deferredPrompt.userChoice;
+                    console.log(`User ${outcome} the installation`);
+                    deferredPrompt = null;
+                    const banner = document.getElementById('installBanner');
+                    if (banner) banner.style.display = 'none';
+                }
+            });
+        }
+        
+        if (closeInstall) {
+            closeInstall.addEventListener('click', () => {
+                const banner = document.getElementById('installBanner');
+                if (banner) banner.style.display = 'none';
+            });
+        }
         
         // Configuration for WebRTC
         const configuration = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
@@ -734,6 +810,13 @@
             if (section === 'dashboard' && currentUser) { loadDashboardData(); checkFreeTier(); loadPaymentStatus(); loadCompaniesForRating(); }
             if (section === 'orders' && currentUser) loadOrders();
             if (section === 'delivery') initMap();
+            
+            // Update URL for PWA
+            if (window.history && window.history.pushState) {
+                const url = new URL(window.location.href);
+                url.searchParams.set('section', section);
+                window.history.pushState({}, '', url);
+            }
         }
         
         async function trackOrder() {
