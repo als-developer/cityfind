@@ -668,7 +668,7 @@ app.get('/api/receiver/stats', authMiddleware, async (req, res) => {
 
 // ============ AI BOT ROUTE - CLEAN VERSION ============
 // ============ AI BOT ROUTE - USING GOOGLE GEMINI API ============
-const GOOGLE_AI_API_KEY = process.env.GOOGLE_AI_API_KEY || 'AIzaSyAgzX8szyUGq2TxCoUgAJx7U-z4FSgiLP8';
+const GOOGLE_AI_API_KEY = process.env.GOOGLE_AI_API_KEY || const GOOGLE_AI_API_KEY = process.env.GOOGLE_AI_API_KEY;
 
 app.post('/api/bot/chat', async (req, res) => {
     try {
