@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customer Dashboard - City Find</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.socket.io/4.6.2/socket.io.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: radial-gradient(ellipse at 30% 40%, #0a0f2a, #000000);
+            font-family: 'Segoe UI', sans-serif;
+        }
+        .glass-card {
+            background: rgba(15, 25, 45, 0.6);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(0, 242, 254, 0.2);
+            border-radius: 20px;
+            transition: all 0.3s ease;
+        }
+        .glass-card:hover { border-color: rgba(0, 242, 254, 0.5); transform: translateY(-3px); }
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            background: linear-gradient(135deg, #00f2fe, #9b51e0);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        video {
+            max-width: 100%;
+            border-radius: 12px;
+        }
+    </style>
+</head>
+<body class="text-white">
+    <div class="container mx-auto px-4 py-8">
+        <!-- Header -->
+        <div class="flex justify-between items-center mb-8">
+            <div>
+                <h1 class="text-3xl font-bold bg-gradient-to-r from-cyan-400 to-purple-500 bg-clip-text text-transparent">
+                    My Account
+                </h1>
+                <p class="text-gray-400 mt-1">Track orders, make payments, rate sellers</p>
+            </div>
+            <div class="glass-card px-4 py-2">
+                <i class="fas fa-shopping-cart text-cyan-400"></i>
+                <span id="orderCount" class="ml-2">0 Orders</span>
+            </div>
+        </div>
+
+        <!-- Stats Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div class="glass-card p-6 text-center">
+                <i class="fas fa-truck text-3xl text-cyan-400 mb-2"></i>
+                <p class="stat-number" id="statPending">0</p>
+                <p class="text-sm text-gray-400">Pending Delivery</p>
+            </div>
+            <div class="glass-card p-6 text-center">
+                <i class="fas fa-check-circle text-3xl text-green-400 mb-2"></i>
+                <p class="stat-number" id="statDelivered">0</p>
+                <p class="text-sm text-gray-400">Delivered</p>
+            </div>
+            <div class="glass-card p-6 text-center">
+                <i class="fas fa-dollar-sign text-3xl text-yellow-400 mb-2"></i>
+                <p class="stat-number" id="statSpent">$0</p>
+                <p class="text-sm text-gray-400">Total Spent</p>
+            </div>
+        </div>
+
+        <!-- Create Order -->
+        <div class="glass-card p-6 mb-8">
+            <h2 class="text-xl font-bold mb-4"><i class="fas fa-plus-circle text-cyan-400 mr-2"></i> Place New Order</h2>
+            <form id="createOrderForm" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <input type="text" id="productName" placeholder="Product Name *" class="bg-white/10 border border-white/20 rounded-lg px-4 py-2 focus:outline-none focus:border-cyan-400" required>
+                <input type="number" id="quantity" placeholder="Quantity *" class="bg-white/10 border border-white/20 rounded-lg px-4 py-2" required>
+                <textarea id="qualitySpecs" placeholder="Quality Specifications (e.g., brand new, original, sealed)" rows="2" class="bg-white/10 border border-white/20 rounded-lg px-4 py-2 md:col-span-2"></textarea>
+                <input type="url" id="productImage" placeholder="Product Image URL" class="bg-white/10 border border-white/20 rounded-lg px-4 py-2">
+                <input type="text" id="sellerEmail" placeholder="Seller Email (if known)" class="bg-white/10 border border-white/20 rounded-lg px-4 py-2">
+                <button type="submit" class="md:col-span-2 bg-gradient-to-r from-cyan-500 to-purple-600 rounded-full py-3 font-semibold hover:scale-105 transition">
+                    <i class="fas fa-shopping-cart mr-2"></i> Create Order & Pay
+                </button>
+            </form>
+        </div>
+
+        <!-- My Orders -->
+        <div class="glass-card p-6">
+            <h2 class="text-xl font-bold mb-4"><i class="fas fa-list text-cyan-400 mr-2"></i> My Orders</h2>
+            <div id="ordersList" class="space-y-4 max-h-96 overflow-y-auto">
+                <div class="text-center py-8 text-gray-400">Loading your orders...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        const token = localStorage.getItem('token');
+        if (!token) window.location.href = '/';
+        
+        let currentUser = null;
+        
+        async function loadReceiverData() {
+            try {
+                const userRes = await fetch('/api/auth/me', {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                currentUser = await userRes.json();
+                
+                const statsRes = await fetch('/api/receiver/stats', {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                const stats = await statsRes.json();
+                document.getElementById('statPending').textContent = stats.orders?.pending || 0;
+                document.getElementById('statDelivered').textContent = stats.orders?.received || 0;
+                document.getElementById('statSpent').textContent = `$${stats.spent || 0}`;
+                document.getElementById('orderCount').textContent = `${stats.orders?.total || 0} Orders`;
+                
+                const ordersRes = await fetch('/api/orders', {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                const orders = await ordersRes.json();
+                const myOrders = orders.filter(o => o.receiverId === currentUser._id);
+                
+                const ordersDiv = document.getElementById('ordersList');
+                if (myOrders.length === 0) {
+                    ordersDiv.innerHTML = '<div class="text-center py-8 text-gray-400">No orders yet. Create your first order above!</div>';
+                    return;
+                }
+                
+                const statusColors = {
+                    pending: 'yellow', scanning: 'blue', in_transit: 'orange',
+                    quality_check: 'purple', delivered: 'green', disputed: 'red', completed: 'green'
+                };
+                
+                ordersDiv.innerHTML = myOrders.map(order => `
+                    <div class="bg-white/5 rounded-lg p-4 border border-white/10">
+                        <div class="flex justify-between items-start flex-wrap gap-2">
+                            <div>
+                                <p class="font-mono text-sm">#${order.orderNumber}</p>
+                                <p class="font-semibold text-lg">${order.productName}</p>
+                                <p class="text-sm text-gray-400">Quantity: ${order.quantity}</p>
+                                ${order.qualitySpecs?.length ? `<p class="text-xs text-cyan-400 mt-1">Specs: ${order.qualitySpecs.join(', ')}</p>` : ''}
+                            </div>
+                            <div class="text-right">
+                                <span class="px-3 py-1 rounded-full text-sm bg-${statusColors[order.status]}-500/30">
+                                    ${order.status.toUpperCase()}
+                                </span>
+                                <p class="text-cyan-400 font-bold mt-2">$${order.paymentAmount || 0}</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Tracking Map -->
+                        ${order.currentLocation?.lat ? `
+                            <div class="mt-3 p-3 bg-black/30 rounded-lg">
+                                <p class="text-sm text-gray-400"><i class="fas fa-map-marker-alt text-red-400"></i> Current Location:</p>
+                                <p class="text-sm">${order.currentLocation.address || `${order.currentLocation.lat}, ${order.currentLocation.lng}`}</p>
+                            </div>
+                        ` : ''}
+                        
+                        <!-- Tracking History -->
+                        ${order.trackingHistory?.length ? `
+                            <div class="mt-3">
+                                <p class="text-sm text-gray-400 mb-2">Tracking History:</p>
+                                <div class="space-y-1 max-h-32 overflow-y-auto">
+                                    ${order.trackingHistory.slice(-3).map(h => `
+                                        <div class="text-xs flex justify-between">
+                                            <span>${new Date(h.timestamp).toLocaleString()}</span>
+                                            <span class="text-cyan-400">${h.status}</span>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
+                        
+                        <!-- Quality Check Button (when status is quality_check) -->
+                        ${order.status === 'quality_check' ? `
+                            <div class="mt-4">
+                                <button onclick="showQualityCheck('${order.orderNumber}')" class="w-full bg-purple-600 rounded-full py-2 hover:bg-purple-700 transition">
+                                    <i class="fas fa-clipboard-check mr-2"></i> Perform Quality Check
+                                </button>
+                            </div>
+                        ` : ''}
+                        
+                        <!-- Rating Button (when completed) -->
+                        ${order.status === 'completed' ? `
+                            <div class="mt-4">
+                                <button onclick="rateSeller('${order.senderId?._id}', '${order.orderNumber}')" class="w-full bg-yellow-600 rounded-full py-2 hover:bg-yellow-700 transition">
+                                    <i class="fas fa-star mr-2"></i> Rate Seller
+                                </button>
+                            </div>
+                        ` : ''}
+                        
+                        <div class="flex gap-2 mt-3">
+                            <button onclick="trackOrder('${order.orderNumber}')" class="flex-1 bg-cyan-600 rounded-full py-1 text-sm hover:bg-cyan-700">
+                                <i class="fas fa-map-marker-alt"></i> Track
+                            </button>
+                            <button onclick="contactSeller('${order.senderId?._id}')" class="flex-1 bg-green-600 rounded-full py-1 text-sm hover:bg-green-700">
+                                <i class="fab fa-whatsapp"></i> Contact Seller
+                            </button>
+                            ${order.status === 'in_transit' ? `
+                                <button onclick="contactProvider('${order.providerId?._id}')" class="flex-1 bg-blue-600 rounded-full py-1 text-sm hover:bg-blue-700">
+                                    <i class="fas fa-truck"></i> Contact Driver
+                                </button>
+                            ` : ''}
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Error loading receiver data:', error);
+            }
+        }
+        
+        document.getElementById('createOrderForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const orderData = {
+                productName: document.getElementById('productName').value,
+                quantity: parseInt(document.getElementById('quantity').value),
+                qualitySpecs: document.getElementById('qualitySpecs').value,
+                productImage: document.getElementById('productImage').value,
+                deliveryFee: 10
+            };
+            
+            // If seller email provided, find seller ID
+            const sellerEmail = document.getElementById('sellerEmail').value;
+            if (sellerEmail) {
+                // Here you would fetch seller by email
+                orderData.receiverId = currentUser._id;
+            } else {
+                orderData.receiverId = currentUser._id;
+            }
+            
+            const res = await fetch('/api/orders/create', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify(orderData)
+            });
+            
+            if (res.ok) {
+                const data = await res.json();
+                alert(`Order created! Order #: ${data.order.orderNumber}\nProceed to payment.`);
+                
+                // Show payment dialog
+                const amount = prompt('Enter payment amount (USD):', '100');
+                if (amount) {
+                    const paymentRes = await fetch('/api/payments/create-intent', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            Authorization: `Bearer ${token}`
+                        },
+                        body: JSON.stringify({
+                            amount: parseFloat(amount),
+                            currency: 'USD',
+                            orderId: data.order._id,
+                            method: 'nmb'
+                        })
+                    });
+                    const payment = await paymentRes.json();
+                    
+                    if (payment.bankDetails) {
+                        alert(`Bank Transfer Details:\nBank: ${payment.bankDetails.bank}\nAccount: ${payment.bankDetails.accountNumber}\nReference: ${payment.bankDetails.reference}\nAmount: $${amount}\n\nAfter payment, click OK to confirm.`);
+                        
+                        await fetch('/api/payments/confirm', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                Authorization: `Bearer ${token}`
+                            },
+                            body: JSON.stringify({
+                                paymentId: payment.paymentId,
+                                transactionReference: prompt('Enter transaction reference:')
+                            })
+                        });
+                        
+                        alert('Payment confirmed! Your order is now being processed.');
+                    }
+                }
+                
+                document.getElementById('createOrderForm').reset();
+                loadReceiverData();
+            } else {
+                const error = await res.json();
+                alert('Error: ' + error.error);
+            }
+        });
+        
+        function showQualityCheck(orderNumber) {
+            // Create modal for quality check
+            const modalHtml = `
+                <div id="qualityModal" class="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
+                    <div class="bg-gray-900 rounded-2xl p-6 max-w-md w-full mx-4 border border-cyan-500">
+                        <h3 class="text-xl font-bold mb-4">Quality Check</h3>
+                        <p class="text-sm text-gray-400 mb-4">Order: ${orderNumber}</p>
+                        <div class="mb-4">
+                            <label class="block text-sm mb-2">Record Video of Product</label>
+                            <input type="file" id="qualityVideo" accept="video/*" capture="environment" class="w-full bg-white/10 rounded-lg p-2">
+                        </div>
+                        <div class="mb-4">
+                            <label class="block text-sm mb-2">Take Photos</label>
+                            <input type="file" id="qualityPhotos" accept="image/*" multiple capture="environment" class="w-full bg-white/10 rounded-lg p-2">
+                        </div>
+                        <div class="mb-4">
+                            <label class="block text-sm mb-2">Does quality match specifications?</label>
+                            <select id="qualityPassed" class="w-full bg-white/10 rounded-lg p-2">
+                                <option value="true">Yes, perfect match</option>
+                                <option value="false">No, issues found</option>
+                            </select>
+                        </div>
+                        <div id="issuesField" class="mb-4 hidden">
+                            <textarea id="qualityIssues" placeholder="Describe the issues..." rows="3" class="w-full bg-white/10 rounded-lg p-2"></textarea>
+                        </div>
+                        <div class="flex gap-3">
+                            <button onclick="submitQualityCheck('${orderNumber}')" class="flex-1 bg-green-600 rounded-full py-2">Submit</button>
+                            <button onclick="closeQualityModal()" class="flex-1 bg-gray-600 rounded-full py-2">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            
+            document.getElementById('qualityPassed').addEventListener('change', (e) => {
+                const issuesField = document.getElementById('issuesField');
+                issuesField.classList.toggle('hidden', e.target.value === 'true');
+            });
+        }
+        
+        async function submitQualityCheck(orderNumber) {
+            const qualityPassed = document.getElementById('qualityPassed').value === 'true';
+            const issues = document.getElementById('qualityIssues')?.value || '';
+            
+            // Simulate video/photo upload
+            const videoFile = document.getElementById('qualityVideo').files[0];
+            const photoFiles = document.getElementById('qualityPhotos').files;
+            
+            const res = await fetch('/api/orders/quality-check', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    orderNumber,
+                    qualityPassed,
+                    issues: qualityPassed ? null : issues,
+                    videoUrl: videoFile ? URL.createObjectURL(videoFile) : '',
+                    photos: Array.from(photoFiles).map(f => URL.createObjectURL(f))
+                })
+            });
+            
+            if (res.ok) {
+                alert(qualityPassed ? 'Quality verified! Payment released to seller.' : 'Dispute raised. Admin will review.');
+                closeQualityModal();
+                loadReceiverData();
+            }
+        }
+        
+        function closeQualityModal() {
+            document.getElementById('qualityModal')?.remove();
+        }
+        
+        async function rateSeller(sellerId, orderId) {
+            const rating = prompt('Rate seller (1-5 stars):', '5');
+            if (rating && rating >= 1 && rating <= 5) {
+                const comment = prompt('Leave a comment (optional):', 'Great service!');
+                
+                await fetch('/api/ratings/company', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        companyId: sellerId,
+                        orderId,
+                        rating: parseInt(rating),
+                        comment: comment || '',
+                        deliveryOnTime: true,
+                        qualityMatched: true,
+                        communication: 5
+                    })
+                });
+                
+                alert('Thank you for your rating!');
+                loadReceiverData();
+            }
+        }
+        
+        function trackOrder(orderNumber) {
+            document.getElementById('trackOrderNumber').value = orderNumber;
+            window.open(`/track.html?order=${orderNumber}`, '_blank');
+        }
+        
+        function contactSeller(sellerId) {
+            window.open('https://wa.me/255796323348?text=I%20have%20a%20question%20about%20my%20order', '_blank');
+        }
+        
+        function contactProvider(providerId) {
+            window.open('https://wa.me/255796323348?text=Where%20is%20my%20delivery%3F', '_blank');
+        }
+        
+        loadReceiverData();
+        
+        socket.on('order-update', () => loadReceiverData());
+        socket.on('location-update', () => loadReceiverData());
+    </script>
+</body>
+</html>
