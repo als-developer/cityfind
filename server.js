@@ -786,3 +786,190 @@ server.listen(PORT, () => {
     console.log(`📞 Admin Phone: ${process.env.ADMIN_PHONE || '+255796323348'}`);
     console.log(`🏦 NMB Account: ${process.env.NMB_ACCOUNT || '5161480052318274'}`);
 });
+
+
+// ============ PAYMENT VERIFICATION SYSTEM WITH FREE TIER ============
+
+// Free tier check - user gets 1 month free on first login
+app.get('/api/check-free-tier', authMiddleware, async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id);
+        
+        // Check if user already used free tier
+        if (user.freeTierUsed && user.freeTierExpiry > new Date()) {
+            return res.json({ 
+                hasFreeTier: true, 
+                expiresAt: user.freeTierExpiry,
+                message: "You have an active free tier!"
+            });
+        }
+        
+        if (!user.freeTierUsed) {
+            // Give free tier for 30 days
+            user.freeTierUsed = true;
+            user.freeTierExpiry = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+            user.isPremium = false;
+            await user.save();
+            
+            return res.json({ 
+                hasFreeTier: true, 
+                expiresAt: user.freeTierExpiry,
+                message: "Welcome! You've received 1 month free tier!"
+            });
+        }
+        
+        res.json({ hasFreeTier: false, message: "Free tier expired. Please make a payment." });
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// Upload payment screenshot
+const paymentUpload = multer({ storage: storage });
+
+app.post('/api/payments/upload-screenshot', authMiddleware, paymentUpload.single('screenshot'), async (req, res) => {
+    try {
+        const { amount, phoneNumber, transactionId } = req.body;
+        const screenshotUrl = req.file ? req.file.path : null;
+        
+        const payment = new Payment({
+            userId: req.user.id,
+            amount: amount || 0,
+            currency: 'TZS',
+            method: 'bank_transfer',
+            transactionId: transactionId || 'PENDING_' + Date.now(),
+            status: 'pending',
+            screenshotUrl: screenshotUrl,
+            phoneNumber: phoneNumber,
+            senderName: req.user.fullName
+        });
+        
+        await payment.save();
+        
+        // Send WhatsApp notification to admin
+        const whatsappMessage = `🔔 *NEW PAYMENT UPLOADED!*\n\nUser: ${req.user.fullName}\nPhone: ${phoneNumber}\nAmount: ${amount} TZS\nTransaction ID: ${payment.transactionId}\n\nPlease verify payment and confirm.`;
+        
+        // You'll need WhatsApp Business API or Twilio
+        await sendWhatsAppMessage(process.env.ADMIN_PHONE, whatsappMessage);
+        
+        res.json({ 
+            success: true, 
+            paymentId: payment._id,
+            message: "Payment screenshot uploaded! Our team will verify within 24 hours."
+        });
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// Admin verify payment and activate service
+app.post('/api/admin/verify-payment', authMiddleware, adminMiddleware, async (req, res) => {
+    try {
+        const { paymentId, action } = req.body;
+        const payment = await Payment.findById(paymentId).populate('userId');
+        
+        if (!payment) return res.status(404).json({ error: 'Payment not found' });
+        
+        if (action === 'approve') {
+            payment.status = 'completed';
+            payment.verifiedAt = new Date();
+            await payment.save();
+            
+            // Activate premium for user (1 month)
+            payment.userId.isPremium = true;
+            payment.userId.premiumExpiry = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+            await payment.userId.save();
+            
+            // Send WhatsApp confirmation to user
+            const confirmMessage = `✅ *PAYMENT CONFIRMED!*\n\nDear ${payment.userId.fullName},\n\nYour payment has been verified! Your premium account is now ACTIVE for 30 days.\n\nThank you for choosing City Find! 🚀`;
+            await sendWhatsAppMessage(payment.userId.phone, confirmMessage);
+            
+            res.json({ success: true, message: "Payment verified! User premium activated." });
+        } else if (action === 'reject') {
+            payment.status = 'failed';
+            payment.rejectionReason = req.body.reason;
+            await payment.save();
+            
+            const rejectMessage = `❌ *PAYMENT REJECTED*\n\nDear ${payment.userId.fullName},\n\nYour payment could not be verified. Please contact us for assistance.\n\nWhatsApp: +255796323348`;
+            await sendWhatsAppMessage(payment.userId.phone, rejectMessage);
+            
+            res.json({ success: true, message: "Payment rejected." });
+        }
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// User check payment status
+app.get('/api/payments/status', authMiddleware, async (req, res) => {
+    try {
+        const payments = await Payment.find({ userId: req.user.id }).sort({ createdAt: -1 });
+        const user = await User.findById(req.user.id);
+        
+        res.json({
+            payments: payments,
+            isPremium: user.isPremium || false,
+            premiumExpiry: user.premiumExpiry,
+            freeTierUsed: user.freeTierUsed,
+            freeTierExpiry: user.freeTierExpiry
+        });
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// WhatsApp webhook for incoming messages (to verify payments)
+app.post('/api/whatsapp-webhook', async (req, res) => {
+    try {
+        const { from, message, mediaUrl } = req.body;
+        
+        // Check if message contains payment confirmation
+        if (message.toLowerCase().includes('confirmed') || message.toLowerCase().includes('thibitisha')) {
+            // Extract transaction ID from message
+            const transactionMatch = message.match(/TXN[0-9]+/i);
+            if (transactionMatch) {
+                const payment = await Payment.findOne({ transactionId: transactionMatch[0] });
+                if (payment && payment.status === 'pending') {
+                    payment.status = 'completed';
+                    payment.verifiedAt = new Date();
+                    await payment.save();
+                    
+                    // Activate premium
+                    const user = await User.findById(payment.userId);
+                    user.isPremium = true;
+                    user.premiumExpiry = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+                    await user.save();
+                    
+                    await sendWhatsAppMessage(from, `✅ Payment confirmed! Your premium is active for 30 days.`);
+                }
+            }
+        }
+        
+        res.json({ success: true });
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// Helper function to send WhatsApp messages (using WhatsApp Business API or Green API)
+async function sendWhatsAppMessage(phoneNumber, message) {
+    try {
+        // If you have Green API or WhatsApp Business API, put here
+        console.log(`WhatsApp to ${phoneNumber}: ${message}`);
+        
+        // Example with Green API (you'll need to sign up)
+        // const GREEN_API_URL = process.env.GREEN_API_URL;
+        // const GREEN_API_TOKEN = process.env.GREEN_API_TOKEN;
+        // await axios.post(`${GREEN_API_URL}/sendMessage`, {
+        //     phone: phoneNumber,
+        //     message: message
+        // }, {
+        //     headers: { Authorization: `Bearer ${GREEN_API_TOKEN}` }
+        // });
+        
+        return true;
+    } catch (error) {
+        console.error('WhatsApp send error:', error);
+        return false;
+    }
+}
