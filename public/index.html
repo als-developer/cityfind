@@ -1,0 +1,1461 @@
+<!DOCTYPE html>
+<html lang="sw">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CITYFIND · Global Marketplace</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="manifest" href="manifest.json">
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background-color: #040702;
+            background-image: radial-gradient(circle at 5% 15%, rgba(154, 205, 50, 0.07) 0%, transparent 35%),
+                radial-gradient(circle at 95% 85%, rgba(154, 205, 50, 0.04) 0%, transparent 40%);
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            color: #e2e8f0;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        ::-webkit-scrollbar { display: none; }
+        html, body { scroll-behavior: smooth; -ms-overflow-style: none; scrollbar-width: none; }
+        
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+        }
+        .logo-container img {
+            height: 38px;
+            width: auto;
+            object-fit: contain;
+            filter: drop-shadow(0 0 15px rgba(154, 205, 50, 0.15));
+            transition: filter 0.3s ease;
+        }
+        .logo-container:hover img {
+            filter: drop-shadow(0 0 25px rgba(154, 205, 50, 0.3));
+        }
+        .logo-text {
+            font-size: 1.1rem;
+            font-weight: 900;
+            letter-spacing: -0.5px;
+            display: flex;
+            align-items: center;
+        }
+        .logo-text .city { color: #ffffff; }
+        .logo-text .find {
+            color: #030602;
+            background: #9acd32;
+            padding: 0 8px;
+            border-radius: 8px;
+            margin-left: 4px;
+            font-size: 0.75rem;
+            font-weight: 900;
+            letter-spacing: 0.5px;
+            box-shadow: 0 0 20px rgba(154, 205, 50, 0.4);
+        }
+        
+        .product-card-hover {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .product-card-hover:hover {
+            transform: translateY(-6px);
+            border-color: rgba(154, 205, 50, 0.3);
+            box-shadow: 0 12px 40px rgba(154, 205, 50, 0.08);
+        }
+        
+        .search-suggestions {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: rgba(10, 18, 6, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(154, 205, 50, 0.15);
+            border-radius: 16px;
+            margin-top: 4px;
+            padding: 8px 0;
+            z-index: 100;
+            max-height: 400px;
+            overflow-y: auto;
+            display: none;
+        }
+        .search-suggestions.active { display: block; }
+        .search-suggestion-item {
+            padding: 10px 16px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+            border-bottom: 1px solid rgba(255,255,255,0.03);
+        }
+        .search-suggestion-item:hover {
+            background: rgba(154, 205, 50, 0.1);
+            color: #9acd32;
+        }
+        .search-suggestion-item .highlight { color: #9acd32; font-weight: 700; }
+        .search-suggestion-item .distance-badge {
+            font-size: 9px;
+            background: rgba(154, 205, 50, 0.15);
+            color: #9acd32;
+            padding: 2px 10px;
+            border-radius: 20px;
+            margin-left: auto;
+            white-space: nowrap;
+        }
+        
+        .category-filter-bar {
+            background: rgba(10, 18, 6, 0.8);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(154, 205, 50, 0.1);
+            border-radius: 16px;
+            padding: 8px 12px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 6px;
+        }
+        .category-filter-bar .filter-btn {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 10px;
+            font-weight: 600;
+            transition: all 0.2s;
+            cursor: pointer;
+            border: 1px solid transparent;
+            background: rgba(255,255,255,0.05);
+            color: #6a6a7a;
+            white-space: nowrap;
+        }
+        .category-filter-bar .filter-btn:hover {
+            border-color: rgba(154, 205, 50, 0.3);
+            color: #e2e8f0;
+        }
+        .category-filter-bar .filter-btn.active {
+            background: #9acd32;
+            color: #030602;
+            border-color: #9acd32;
+        }
+        
+        .distance-label {
+            font-size: 9px;
+            color: #9acd32;
+            background: rgba(154, 205, 50, 0.1);
+            padding: 2px 8px;
+            border-radius: 12px;
+        }
+        
+        .toast-container {
+            position: fixed;
+            bottom: 100px;
+            right: 20px;
+            z-index: 9999;
+            max-width: 400px;
+            width: calc(100% - 40px);
+        }
+        .toast {
+            background: rgba(10, 18, 6, 0.95);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(154, 205, 50, 0.2);
+            border-radius: 16px;
+            padding: 0.8rem 1.2rem;
+            color: white;
+            font-size: 0.85rem;
+            animation: toastIn 0.4s ease-out;
+            margin-bottom: 0.6rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+        }
+        .toast button {
+            background: transparent;
+            border: none;
+            color: #6a6a7a;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+        @keyframes toastIn {
+            from { opacity: 0; transform: translateX(30px) scale(0.95); }
+            to { opacity: 1; transform: translateX(0) scale(1); }
+        }
+        
+        .qr-container {
+            background: white;
+            padding: 16px;
+            border-radius: 16px;
+            display: inline-block;
+            box-shadow: 0 8px 40px rgba(0, 0, 0, 0.3);
+            position: relative;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .qr-container:hover {
+            transform: scale(1.02);
+            box-shadow: 0 12px 50px rgba(154, 205, 50, 0.2);
+        }
+        .qr-container .qr-logo {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid #9acd32;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+            pointer-events: none;
+        }
+        .qr-container .qr-logo img {
+            width: 34px;
+            height: 34px;
+            object-fit: contain;
+        }
+        
+        .settings-dropdown {
+            display: none;
+            position: absolute;
+            right: 0;
+            top: 100%;
+            margin-top: 8px;
+            background: rgba(10, 18, 6, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(154, 205, 50, 0.15);
+            border-radius: 16px;
+            padding: 8px 0;
+            min-width: 220px;
+            z-index: 100;
+        }
+        .settings-dropdown.active { display: block; }
+        .settings-dropdown-item {
+            padding: 10px 16px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 13px;
+            color: #e2e8f0;
+        }
+        .settings-dropdown-item:hover {
+            background: rgba(154, 205, 50, 0.1);
+            color: #9acd32;
+        }
+        #adminSecretLink { display: none; }
+        
+        #cartDrawer {
+            position: fixed;
+            inset-y: 0;
+            right: 0;
+            width: 100%;
+            max-width: 400px;
+            background: rgba(10, 18, 6, 0.98);
+            backdrop-filter: blur(20px);
+            border-left: 1px solid rgba(154, 205, 50, 0.15);
+            box-shadow: 0 0 60px rgba(0,0,0,0.8);
+            z-index: 150;
+            display: none;
+            flex-direction: column;
+            padding: 20px;
+        }
+        #cartDrawer.open { display: flex; }
+        
+        #scannerModal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 200;
+            background: rgba(0,0,0,0.9);
+            align-items: center;
+            justify-content: center;
+        }
+        #scannerModal.active { display: flex; }
+        #scanner-container {
+            max-width: 400px;
+            width: 100%;
+            border-radius: 20px;
+            overflow: hidden;
+        }
+        
+        .distance-indicator {
+            font-size: 9px;
+            color: #9acd32;
+            background: rgba(154, 205, 50, 0.1);
+            padding: 2px 10px;
+            border-radius: 12px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .distance-indicator i { font-size: 8px; }
+        
+        @media (max-width: 768px) {
+            .grid-products { grid-template-columns: 1fr 1fr !important; }
+            .category-filter-bar { padding: 6px 8px; gap: 4px; }
+            .category-filter-bar .filter-btn { font-size: 8px; padding: 2px 8px; }
+            .qr-container { padding: 12px; }
+            .qr-container canvas { width: 160px !important; height: 160px !important; }
+            .qr-container .qr-logo { width: 36px; height: 36px; }
+            .qr-container .qr-logo img { width: 26px; height: 26px; }
+        }
+        @media (max-width: 480px) {
+            .grid-products { grid-template-columns: 1fr !important; }
+            .qr-container canvas { width: 140px !important; height: 140px !important; }
+            .qr-container .qr-logo { width: 32px; height: 32px; }
+            .qr-container .qr-logo img { width: 22px; height: 22px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ============================================================
+    TOP BAR
+    ============================================================ -->
+    <div class="bg-[#0a0a0f] border-b border-[#1a1a24] px-4 py-1.5 flex items-center justify-between text-[11px] text-[#6a6a7a] flex-wrap gap-1 relative z-10">
+        <div class="flex items-center gap-4">
+            <div class="logo-container logo-xs" onclick="window.location.href='index.html'">
+                <img src="https://files.catbox.moe/6voiyk.png" alt="CITYFIND Logo" />
+                <div class="logo-text">
+                    <span class="city">CITY</span>
+                    <span class="find">FIND</span>
+                    <span class="badge-star">★</span>
+                </div>
+            </div>
+            <span class="hidden sm:inline">|</span>
+            <span class="hidden sm:inline text-[#9acd32] font-bold">Global Marketplace</span>
+        </div>
+        <div class="flex items-center gap-3">
+            <span class="hidden sm:inline text-slate-500">Dar es Salaam</span>
+            <button onclick="showToast('🌙 Dark mode active')" class="hover:text-white transition">
+                <i class="fa-regular fa-moon"></i>
+            </button>
+            <button onclick="openScanner()" class="hover:text-[#9acd32] transition text-[10px] flex items-center gap-1">
+                <i class="fa-solid fa-qrcode"></i> Scan
+            </button>
+            <button onclick="toggleCart()" class="relative text-white hover:text-[#9acd32] transition">
+                <i class="fa-solid fa-cart-shopping text-sm"></i>
+                <span id="cart-count-top" class="absolute -top-1 -right-2 bg-[#9acd32] text-[#030602] text-[8px] font-bold rounded-full w-4 h-4 flex items-center justify-center">0</span>
+            </button>
+            <div class="relative">
+                <button onclick="toggleSettings()" class="text-white hover:text-[#9acd32] transition" id="settingsGearBtn">
+                    <i class="fa-solid fa-gear text-sm"></i>
+                </button>
+                <div id="settingsDropdown" class="settings-dropdown">
+                    <div class="settings-dropdown-item" onclick="showToast('👤 Profile settings opened')">
+                        <i class="fa-regular fa-user"></i> Profile
+                    </div>
+                    <div class="settings-dropdown-item" onclick="showToast('📦 Order history')">
+                        <i class="fa-regular fa-clock"></i> Order History
+                    </div>
+                    <div class="settings-dropdown-item" onclick="showToast('❤️ Wishlist opened')">
+                        <i class="fa-regular fa-heart"></i> Wishlist
+                    </div>
+                    <div class="settings-divider"></div>
+                    <div class="settings-dropdown-item" onclick="window.location.href='dashboard-sellers.html'" style="color:#fbbf24;">
+                        <i class="fa-solid fa-store"></i> Switch to Seller
+                    </div>
+                    <div id="adminSecretLink" class="settings-dropdown-item" onclick="goToAdmin()" style="color:#a78bfa;">
+                        <i class="fa-solid fa-shield-halved"></i> Admin Panel
+                        <span class="text-[8px] text-slate-500 ml-auto">🔑</span>
+                    </div>
+                    <div class="settings-divider"></div>
+                    <div class="settings-dropdown-item" onclick="showToast('📧 Contact support')" style="color:#60a5fa;">
+                        <i class="fa-regular fa-envelope"></i> Contact Support
+                    </div>
+                    <div class="settings-dropdown-item" onclick="logoutUser()" style="color:#ff6b6b;">
+                        <i class="fa-solid fa-sign-out-alt"></i> Logout
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================
+    MAIN NAVBAR
+    ============================================================ -->
+    <header class="sticky top-0 z-50 bg-[#0a0a0f] border-b border-[#1a1a24] px-4 py-3 relative">
+        <div class="max-w-7xl mx-auto flex items-center gap-4 flex-wrap">
+            <a href="#" onclick="showHome()" class="logo-container hover:opacity-80 transition">
+                <img src="https://files.catbox.moe/6voiyk.png" alt="CITYFIND Logo" />
+                <div class="logo-text text-2xl">
+                    <span class="city">CITY</span>
+                    <span class="find">FIND</span>
+                    <span class="badge-star">★</span>
+                </div>
+            </a>
+
+            <div class="hidden lg:flex items-center gap-2 text-xs text-[#6a6a7a] hover:text-white transition cursor-pointer bg-[#1a1a24] px-3 py-1.5 rounded-full border border-[#2a2a34] hover:border-[#9acd32]" onclick="getLocation()">
+                <i class="fa-solid fa-location-dot text-[#9acd32]"></i>
+                <div>
+                    <p class="text-[10px] leading-none">Deliver to</p>
+                    <p class="font-bold text-white text-[11px]" id="user-location">Dar es Salaam</p>
+                </div>
+            </div>
+
+            <div class="flex-1 min-w-[200px] relative">
+                <div class="flex items-center bg-[#1a1a24] rounded-full border border-[#2a2a34] hover:border-[#9acd32] focus-within:border-[#9acd32] focus-within:ring-1 focus-within:ring-[#9acd32] transition-all">
+                    <select class="bg-transparent text-xs text-[#6a6a7a] px-3 py-2 rounded-l-full outline-none border-r border-[#2a2a34] cursor-pointer hover:text-white transition">
+                        <option>All</option>
+                        <option>Products</option>
+                        <option>Categories</option>
+                        <option>Brands</option>
+                        <option>Locations</option>
+                    </select>
+                    <input type="text" id="liveSearchInput" onkeyup="liveSearch()" onfocus="liveSearch()" placeholder="Search products, brands, categories..." class="flex-1 bg-transparent px-3 py-2 text-sm text-white outline-none placeholder:text-[#4a4a5a]" autocomplete="off" />
+                    <button onclick="globalSearch()" class="bg-[#9acd32] text-[#030602] px-5 py-2 rounded-full font-bold hover:bg-[#7CB342] transition flex items-center gap-1 text-sm mr-2">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                        <span class="hidden sm:inline">Search</span>
+                    </button>
+                </div>
+                <div id="searchSuggestions" class="search-suggestions"></div>
+            </div>
+
+            <div class="flex items-center gap-4">
+                <button onclick="openScanner()" class="text-[#9acd32] hover:text-white transition text-sm hidden md:block">
+                    <i class="fa-solid fa-qrcode"></i>
+                </button>
+                <div class="relative group">
+                    <button class="flex flex-col items-start text-xs text-[#6a6a7a] hover:text-white transition">
+                        <span class="text-[10px] leading-none">Hello, Buyer</span>
+                        <span class="font-bold text-white text-[11px] flex items-center gap-1">
+                            Account <i class="fa-solid fa-chevron-down text-[8px]"></i>
+                        </span>
+                    </button>
+                    <div class="absolute right-0 mt-2 w-56 bg-[#14141a] border border-[#2a2a34] rounded-xl shadow-xl py-2 hidden group-hover:block">
+                        <a href="#" class="block px-4 py-2 text-sm text-[#6a6a7a] hover:text-white hover:bg-[#1a1a24] transition">Your Profile</a>
+                        <a href="#" class="block px-4 py-2 text-sm text-[#6a6a7a] hover:text-white hover:bg-[#1a1a24] transition">Your Orders</a>
+                        <a href="#" class="block px-4 py-2 text-sm text-[#6a6a7a] hover:text-white hover:bg-[#1a1a24] transition">Wishlist</a>
+                        <hr class="border-[#2a2a34] my-1" />
+                        <a href="#" class="block px-4 py-2 text-sm text-[#6a6a7a] hover:text-white hover:bg-[#1a1a24] transition">Settings</a>
+                        <a href="#" class="block px-4 py-2 text-sm text-[#ff6b6b] hover:text-white hover:bg-[#1a1a24] transition" onclick="logoutUser()">Sign Out</a>
+                    </div>
+                </div>
+                <a href="javascript:void(0)" onclick="toggleCart()" class="flex items-center gap-2 text-white hover:text-[#9acd32] transition relative">
+                    <i class="fa-solid fa-cart-shopping text-xl"></i>
+                    <span id="cart-count" class="absolute -top-1 -right-2 bg-[#9acd32] text-[#030602] text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center">0</span>
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- ============================================================
+    CATEGORY NAV
+    ============================================================ -->
+    <nav class="sticky top-[72px] z-40 bg-[#0f0f16] border-b border-[#1a1a24] px-4 py-2 overflow-x-auto">
+        <div class="max-w-7xl mx-auto flex items-center gap-2 text-xs text-[#6a6a7a] whitespace-nowrap overflow-x-auto pb-1">
+            <button onclick="filterCategory('all')" class="flex items-center gap-1 hover:text-[#9acd32] transition font-medium text-[#9acd32] px-2 py-1 rounded">
+                <i class="fa-solid fa-border-all"></i> All
+            </button>
+            <button onclick="filterCategory('food')" class="hover:text-[#9acd32] transition px-2 py-1 rounded hover:bg-white/5"><i class="fa-solid fa-utensils"></i> Food</button>
+            <button onclick="filterCategory('fashion')" class="hover:text-[#9acd32] transition px-2 py-1 rounded hover:bg-white/5"><i class="fa-solid fa-tshirt"></i> Fashion</button>
+            <button onclick="filterCategory('electronics')" class="hover:text-[#9acd32] transition px-2 py-1 rounded hover:bg-white/5"><i class="fa-solid fa-laptop"></i> Electronics</button>
+            <button onclick="filterCategory('healthcare')" class="hover:text-[#9acd32] transition px-2 py-1 rounded hover:bg-white/5"><i class="fa-solid fa-heart-pulse"></i> Healthcare</button>
+            <button onclick="filterCategory('education')" class="hover:text-[#9acd32] transition px-2 py-1 rounded hover:bg-white/5"><i class="fa-solid fa-graduation-cap"></i> Education</button>
+            <button onclick="filterCategory('business')" class="hover:text-[#9acd32] transition px-2 py-1 rounded hover:bg-white/5"><i class="fa-solid fa-briefcase"></i> Business</button>
+            <button onclick="filterCategory('technology')" class="hover:text-[#9acd32] transition px-2 py-1 rounded hover:bg-white/5"><i class="fa-solid fa-microchip"></i> Technology</button>
+            <button onclick="filterCategory('travel')" class="hover:text-[#9acd32] transition px-2 py-1 rounded hover:bg-white/5"><i class="fa-solid fa-plane"></i> Travel</button>
+            <button onclick="filterCategory('realestate')" class="hover:text-[#9acd32] transition px-2 py-1 rounded hover:bg-white/5"><i class="fa-solid fa-house-circle-check"></i> Real Estate</button>
+            <button onclick="filterCategory('automotive')" class="hover:text-[#9acd32] transition px-2 py-1 rounded hover:bg-white/5"><i class="fa-solid fa-car"></i> Automotive</button>
+            <button onclick="filterCategory('sports')" class="hover:text-[#9acd32] transition px-2 py-1 rounded hover:bg-white/5"><i class="fa-solid fa-football"></i> Sports</button>
+            <button onclick="filterCategory('entertainment')" class="hover:text-[#9acd32] transition px-2 py-1 rounded hover:bg-white/5"><i class="fa-solid fa-film"></i> Entertainment</button>
+            <button onclick="filterCategory('agriculture')" class="hover:text-[#9acd32] transition px-2 py-1 rounded hover:bg-white/5"><i class="fa-solid fa-seedling"></i> Agriculture</button>
+            <button onclick="filterCategory('services')" class="hover:text-[#9acd32] transition px-2 py-1 rounded hover:bg-white/5"><i class="fa-solid fa-handshake"></i> Services</button>
+        </div>
+    </nav>
+
+    <!-- ============================================================
+    CATEGORY FILTER BAR
+    ============================================================ -->
+    <div class="sticky top-[110px] z-40 px-4 py-2 bg-[#0a0a0f] border-b border-[#1a1a24]">
+        <div class="max-w-7xl mx-auto category-filter-bar" id="categoryFilterBar">
+            <button class="filter-btn active" onclick="filterCategory('all')" data-filter="all">
+                <i class="fa-solid fa-house"></i> Home
+            </button>
+            <button class="filter-btn" onclick="filterCategory('healthcare')" data-filter="healthcare">
+                <i class="fa-solid fa-heart-pulse"></i> Healthcare
+            </button>
+            <div class="filter-divider"></div>
+            <button class="filter-btn" onclick="filterTrending()" data-filter="trending">
+                <i class="fa-solid fa-fire"></i> Trending
+            </button>
+            <button class="filter-btn" onclick="filterPrice('high')" data-filter="high">
+                <i class="fa-solid fa-arrow-up"></i> High Cost
+            </button>
+            <button class="filter-btn" onclick="filterPrice('low')" data-filter="low">
+                <i class="fa-solid fa-arrow-down"></i> Low Cost
+            </button>
+            <div class="filter-divider"></div>
+            <button class="filter-btn" onclick="filterDelivery('free')" data-filter="free">
+                <i class="fa-solid fa-truck"></i> Free Delivery
+            </button>
+            <button class="filter-btn" onclick="filterDelivery('paid')" data-filter="paid">
+                <i class="fa-solid fa-truck-fast"></i> Paid Delivery
+            </button>
+            <div class="filter-divider"></div>
+            <span class="text-[10px] text-slate-500 flex items-center gap-1">
+                <i class="fa-solid fa-magnifying-glass"></i> Search within...
+            </span>
+            <input type="text" id="categorySearchInput" placeholder="Search category..." class="bg-[#1a1a24] border border-[#2a2a34] rounded-full px-3 py-1 text-xs text-white outline-none focus:border-[#9acd32] transition placeholder:text-[#4a4a5a] flex-1 min-w-[120px]" oninput="filterCategorySearch()" />
+        </div>
+    </div>
+
+    <!-- ============================================================
+    MAIN CONTENT
+    ============================================================ -->
+    <main class="max-w-7xl mx-auto p-4 lg:p-8 space-y-6">
+
+        <!-- Hero Banner -->
+        <section class="relative overflow-hidden rounded-[35px] border border-white/5 bg-gradient-to-br from-white/[0.04] to-transparent p-6 md:p-10 lg:p-14">
+            <div class="absolute -top-24 -right-24 w-96 h-96 bg-yg/10 rounded-full blur-[120px] pointer-events-none"></div>
+            <div class="max-w-3xl relative z-10">
+                <span class="inline-flex items-center space-x-2 bg-yg/10 border border-yg/20 text-yg text-[10px] font-extrabold uppercase tracking-widest px-3 py-1 rounded-full mb-4">
+                    <i class="fa-solid fa-bolt text-amber-400"></i> 
+                    <span>Global Marketplace · 100+ Categories</span>
+                    <span class="text-[8px] bg-red-500 text-white px-1.5 py-0.5 rounded-full ml-1">LIVE</span>
+                </span>
+                <h1 class="text-3xl md:text-5xl font-black text-white tracking-tight uppercase leading-tight">
+                    Shop Premium
+                    <br>
+                    <span class="text-transparent bg-clip-text bg-gradient-to-r from-white via-slate-300 to-yg">Products & Services</span>
+                </h1>
+                <p class="text-slate-400 text-sm mt-3 max-w-lg">
+                    Discover thousands of products from trusted sellers. Free delivery on your first order.
+                    <span class="text-[#9acd32] font-bold">Verified sellers · Live updates</span>
+                </p>
+                <div class="flex flex-wrap gap-3 mt-6">
+                    <button onclick="document.getElementById('liveSearchInput').focus()" class="bg-[#9acd32] text-[#030602] font-bold px-6 py-3 rounded-full hover:bg-[#7CB342] transition flex items-center gap-2">
+                        <i class="fa-solid fa-search"></i> Start Shopping
+                    </button>
+                    <button onclick="openScanner()" class="bg-white/5 border border-white/10 text-white font-bold px-6 py-3 rounded-full hover:bg-white/10 transition flex items-center gap-2">
+                        <i class="fa-solid fa-qrcode"></i> Scan Product
+                    </button>
+                    <button onclick="window.location.href='dashboard-sellers.html'" class="bg-amber-500/20 border border-amber-500/30 text-amber-400 font-bold px-6 py-3 rounded-full hover:bg-amber-500/30 transition flex items-center gap-2">
+                        <i class="fa-solid fa-store"></i> Sell on CITYFIND
+                    </button>
+                </div>
+                <div class="flex flex-wrap gap-4 mt-4 text-xs text-slate-500">
+                    <span><span class="text-yg font-bold">50,000+</span> Products</span>
+                    <span><span class="text-yg font-bold">1,200+</span> Categories</span>
+                    <span><span class="text-yg font-bold">100+</span> Countries</span>
+                    <span><span class="text-yg font-bold">4.9★</span> Rating</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===== QR CODE SECTION ===== -->
+        <section class="relative overflow-hidden rounded-[35px] border border-[#9acd32]/20 bg-gradient-to-br from-[#0a0a0f] to-[#14141a] p-6 md:p-10 text-center">
+            <div class="absolute -top-24 -right-24 w-96 h-96 bg-[#9acd32]/5 rounded-full blur-[120px] pointer-events-none"></div>
+            <div class="relative z-10">
+                <span class="inline-flex items-center space-x-2 bg-[#9acd32]/10 border border-[#9acd32]/20 text-[#9acd32] text-[10px] font-extrabold uppercase tracking-widest px-3 py-1 rounded-full mb-4">
+                    <i class="fa-solid fa-qrcode"></i>
+                    <span>Invite & Earn</span>
+                </span>
+                <h2 class="text-2xl md:text-3xl font-black text-white">Scan to Join <span class="text-[#9acd32]">CITYFIND</span></h2>
+                <p class="text-slate-400 text-sm mt-2 max-w-md mx-auto">
+                    Share this QR code with friends and colleagues. They scan, join, and start shopping!
+                </p>
+
+                <div class="flex justify-center mt-6">
+                    <div class="qr-container" id="qrCodeContainer" onclick="openQRCodeExpanded()">
+                        <div id="qrcode"></div>
+                        <div class="qr-logo">
+                            <img src="https://files.catbox.moe/6voiyk.png" alt="CITYFIND" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
+                    <div class="bg-[#1a1a24] border border-[#2a2a34] rounded-full px-4 py-2 text-sm text-[#6a6a7a] font-mono max-w-xs truncate" id="inviteLinkDisplay">
+                        https://cityfind.com/invite/CITY2026
+                    </div>
+                    <button onclick="copyInviteLink()" class="bg-[#9acd32] text-[#030602] font-bold px-4 py-2 rounded-full text-sm hover:bg-[#7CB342] transition flex items-center gap-2">
+                        <i class="fa-regular fa-copy"></i> Copy Link
+                    </button>
+                </div>
+
+                <div class="flex flex-wrap items-center justify-center gap-3 mt-4">
+                    <button onclick="shareInvite('whatsapp')" class="bg-[#25D366] text-white px-4 py-2 rounded-full text-sm font-bold hover:opacity-80 transition flex items-center gap-2">
+                        <i class="fa-brands fa-whatsapp"></i> WhatsApp
+                    </button>
+                    <button onclick="shareInvite('twitter')" class="bg-[#1DA1F2] text-white px-4 py-2 rounded-full text-sm font-bold hover:opacity-80 transition flex items-center gap-2">
+                        <i class="fa-brands fa-twitter"></i> Twitter
+                    </button>
+                    <button onclick="shareInvite('email')" class="bg-[#EA4335] text-white px-4 py-2 rounded-full text-sm font-bold hover:opacity-80 transition flex items-center gap-2">
+                        <i class="fa-regular fa-envelope"></i> Email
+                    </button>
+                    <button onclick="openInviteModal()" class="bg-white/5 border border-white/10 text-white px-4 py-2 rounded-full text-sm font-bold hover:bg-white/10 transition flex items-center gap-2">
+                        <i class="fa-regular fa-eye"></i> Preview
+                    </button>
+                </div>
+
+                <div class="flex flex-wrap justify-center gap-6 mt-6 text-xs text-slate-500">
+                    <span><span class="text-[#9acd32] font-bold" id="invites-sent">24</span> Invites Sent</span>
+                    <span><span class="text-[#9acd32] font-bold" id="invites-joined">12</span> Joined</span>
+                    <span><span class="text-[#9acd32] font-bold" id="invites-orders">8</span> Orders Placed</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Trending Products -->
+        <section>
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-lg font-bold text-white">Trending Now</h2>
+                <span class="text-xs text-slate-500">Updated hourly</span>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" id="trending-products"></div>
+        </section>
+
+        <!-- Featured Products -->
+        <section>
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-white">Featured Products</h2>
+                <span class="text-xs text-slate-500" id="product-count">Showing 10 products</span>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4" id="products-grid"></div>
+        </section>
+
+        <!-- Features -->
+        <section class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div class="bg-white/[0.02] border border-white/5 rounded-2xl p-4 text-center hover:border-[#9acd32]/30 transition">
+                <div class="w-12 h-12 mx-auto rounded-full bg-[#9acd32]/10 border border-[#9acd32]/20 flex items-center justify-center mb-3">
+                    <i class="fa-solid fa-truck-fast text-[#9acd32] text-xl"></i>
+                </div>
+                <h4 class="font-semibold text-sm text-white">Free Delivery</h4>
+                <p class="text-xs text-slate-500">On orders over TZS 100,000</p>
+            </div>
+            <div class="bg-white/[0.02] border border-white/5 rounded-2xl p-4 text-center hover:border-[#9acd32]/30 transition">
+                <div class="w-12 h-12 mx-auto rounded-full bg-[#9acd32]/10 border border-[#9acd32]/20 flex items-center justify-center mb-3">
+                    <i class="fa-solid fa-shield-halved text-[#9acd32] text-xl"></i>
+                </div>
+                <h4 class="font-semibold text-sm text-white">Secure Payment</h4>
+                <p class="text-xs text-slate-500">100% protected checkout</p>
+            </div>
+            <div class="bg-white/[0.02] border border-white/5 rounded-2xl p-4 text-center hover:border-[#9acd32]/30 transition">
+                <div class="w-12 h-12 mx-auto rounded-full bg-[#9acd32]/10 border border-[#9acd32]/20 flex items-center justify-center mb-3">
+                    <i class="fa-solid fa-rotate-left text-[#9acd32] text-xl"></i>
+                </div>
+                <h4 class="font-semibold text-sm text-white">Easy Returns</h4>
+                <p class="text-xs text-slate-500">30-day return policy</p>
+            </div>
+            <div class="bg-white/[0.02] border border-white/5 rounded-2xl p-4 text-center hover:border-[#9acd32]/30 transition">
+                <div class="w-12 h-12 mx-auto rounded-full bg-[#9acd32]/10 border border-[#9acd32]/20 flex items-center justify-center mb-3">
+                    <i class="fa-solid fa-headset text-[#9acd32] text-xl"></i>
+                </div>
+                <h4 class="font-semibold text-sm text-white">24/7 Support</h4>
+                <p class="text-xs text-slate-500">Dedicated customer service</p>
+            </div>
+        </section>
+
+        <!-- Newsletter -->
+        <section>
+            <div class="bg-gradient-to-r from-[#0a0a0f] to-[#14141a] rounded-[32px] p-8 border border-[#9acd32]/20 text-center">
+                <h3 class="text-2xl font-bold text-white">Stay in the loop</h3>
+                <p class="text-slate-400 text-sm mt-2 max-w-md mx-auto">
+                    Get the latest deals, product drops, and exclusive offers.
+                </p>
+                <div class="flex flex-col sm:flex-row gap-3 max-w-md mx-auto mt-4">
+                    <input type="email" placeholder="Enter your email" class="flex-1 bg-[#0a0a0f] border border-[#2a2a34] rounded-full px-4 py-2.5 text-sm text-white outline-none focus:border-[#9acd32] transition placeholder:text-[#4a4a5a]">
+                    <button onclick="showToast('✅ Subscribed successfully!')" class="bg-[#9acd32] text-[#030602] font-bold px-6 py-2.5 rounded-full hover:bg-[#7CB342] transition flex items-center justify-center gap-2">
+                        <i class="fa-regular fa-paper-plane"></i> Subscribe
+                    </button>
+                </div>
+                <p class="text-[10px] text-slate-500 mt-3">No spam, unsubscribe anytime.</p>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ============================================================
+    FOOTER
+    ============================================================ -->
+    <footer class="mt-8 border-t border-[#1a1a24] bg-[#0a0a0f] rounded-[32px] overflow-hidden max-w-7xl mx-auto m-4">
+        <button onclick="window.scrollTo({top:0,behavior:'smooth'})" class="w-full bg-[#14141a] hover:bg-[#1a1a24] text-[#6a6a7a] hover:text-white text-xs py-3 transition text-center border-b border-[#1a1a24]">
+            <i class="fa-solid fa-chevron-up mr-2"></i> Back to top
+        </button>
+        <div class="p-6 md:p-10">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-8">
+                <div>
+                    <h5 class="text-[#9acd32] font-bold text-sm mb-4"><i class="fa-regular fa-building"></i> Get to Know Us</h5>
+                    <ul class="space-y-2 text-xs text-[#6a6a7a]">
+                        <li><a href="#" onclick="showToast('About CITYFIND')" class="hover:text-white transition">About CITYFIND</a></li>
+                        <li><a href="#" onclick="showToast('Careers')" class="hover:text-white transition">Careers</a></li>
+                        <li><a href="#" onclick="showToast('Blog')" class="hover:text-white transition">Blog</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h5 class="text-[#9acd32] font-bold text-sm mb-4"><i class="fa-regular fa-circle-dollar"></i> Make Money with Us</h5>
+                    <ul class="space-y-2 text-xs text-[#6a6a7a]">
+                        <li><a href="#" onclick="showToast('Sell on CITYFIND')" class="hover:text-white transition">Sell on CITYFIND</a></li>
+                        <li><a href="#" onclick="showToast('Become a Guide')" class="hover:text-white transition">Become a Guide</a></li>
+                        <li><a href="#" onclick="showToast('Advertise')" class="hover:text-white transition">Advertise</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h5 class="text-[#9acd32] font-bold text-sm mb-4"><i class="fa-regular fa-credit-card"></i> Payment Products</h5>
+                    <ul class="space-y-2 text-xs text-[#6a6a7a]">
+                        <li><a href="#" onclick="showToast('CITYFIND Card')" class="hover:text-white transition">CITYFIND Card</a></li>
+                        <li><a href="#" onclick="showToast('Shop with Points')" class="hover:text-white transition">Shop with Points</a></li>
+                        <li><a href="#" onclick="showToast('Currency Converter')" class="hover:text-white transition">Currency Converter</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h5 class="text-[#9acd32] font-bold text-sm mb-4"><i class="fa-regular fa-life-ring"></i> Let Us Help You</h5>
+                    <ul class="space-y-2 text-xs text-[#6a6a7a]">
+                        <li><a href="#" onclick="showToast('Your Account')" class="hover:text-white transition">Your Account</a></li>
+                        <li><a href="#" onclick="showToast('Your Orders')" class="hover:text-white transition">Your Orders</a></li>
+                        <li><a href="#" onclick="showToast('Shipping Rates')" class="hover:text-white transition">Shipping Rates</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="mt-8 pt-8 border-t border-[#1a1a24] flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-[#4a4a5a]">
+                <div class="flex items-center gap-4">
+                    <div class="logo-container logo-sm" onclick="window.location.href='index.html'">
+                        <img src="https://files.catbox.moe/6voiyk.png" alt="CITYFIND Logo" />
+                        <span class="text-lg font-bold text-white">CITY<span class="text-[#9acd32]">FIND</span></span>
+                    </div>
+                    <span>2026 CITYFIND, Inc.</span>
+                </div>
+                <div class="flex flex-wrap items-center gap-4 justify-center">
+                    <a href="#" onclick="showToast('Privacy Policy')" class="hover:text-white transition">Privacy</a>
+                    <a href="#" onclick="showToast('Terms')" class="hover:text-white transition">Terms</a>
+                    <a href="#" onclick="showToast('Cookies')" class="hover:text-white transition">Cookies</a>
+                    <span class="flex items-center gap-1"><i class="fa-solid fa-globe"></i> English (TZ)</span>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- ============================================================
+    MODALS
+    ============================================================ -->
+    
+    <!-- Invite Modal -->
+    <div id="inviteModal" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md hidden items-center justify-center p-4">
+        <div class="bg-[#0a0a0f] border border-[#9acd32]/20 rounded-[28px] max-w-md w-full p-8 text-center">
+            <div class="w-20 h-20 rounded-full bg-[#9acd32]/10 border-2 border-[#9acd32]/20 flex items-center justify-center text-4xl text-[#9acd32] mx-auto mb-4">
+                <i class="fa-solid fa-qrcode"></i>
+            </div>
+            <h2 class="text-2xl font-bold text-white">Welcome to CITYFIND!</h2>
+            <p class="text-slate-400 text-sm mt-2">You've been invited to join the best global marketplace.</p>
+            <div class="bg-[#1a1a24] border border-[#9acd32]/10 rounded-xl p-3 text-[#9acd32] font-mono text-lg font-bold mt-4">
+                <i class="fa-regular fa-gem"></i> INVITE: CITY2026
+            </div>
+            <button onclick="window.location.href='https://cityfind.com'" class="w-full bg-[#9acd32] text-[#030602] font-bold py-3 rounded-xl mt-4 hover:bg-[#7CB342] transition">
+                <i class="fa-solid fa-arrow-right"></i> Join Now
+            </button>
+            <button onclick="closeInviteModal()" class="w-full bg-white/5 text-white py-3 rounded-xl mt-2 hover:bg-white/10 transition">
+                Later
+            </button>
+        </div>
+    </div>
+
+    <!-- Scanner Modal -->
+    <div id="scannerModal" class="fixed inset-0 z-50 bg-black/90 hidden items-center justify-center p-4">
+        <div class="bg-[#0a0a0f] border border-[#9acd32]/20 rounded-3xl max-w-md w-full p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold text-white"><i class="fa-solid fa-qrcode text-[#9acd32]"></i> Scan Product</h3>
+                <button onclick="closeScanner()" class="text-slate-400 hover:text-white text-xl">&times;</button>
+            </div>
+            <div id="scanner-container" class="rounded-xl overflow-hidden bg-black"></div>
+            <div id="scanner-result" class="mt-4 text-center text-sm text-slate-400">Position QR code in front of camera</div>
+            <div class="flex gap-3 mt-4">
+                <button onclick="closeScanner()" class="flex-1 bg-white/5 text-white px-4 py-2 rounded-xl text-sm hover:bg-white/10 transition">Cancel</button>
+                <button onclick="startScanner()" class="flex-1 bg-[#9acd32] text-[#030602] px-4 py-2 rounded-xl text-sm font-bold hover:bg-[#7CB342] transition">
+                    <i class="fa-solid fa-play"></i> Start Scan
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cart Drawer -->
+    <div id="cartDrawer">
+        <div class="flex items-center justify-between border-b border-white/10 pb-4">
+            <div class="flex items-center gap-2 text-white">
+                <i class="fa-solid fa-bag-shopping text-[#9acd32] text-lg"></i>
+                <h3 class="font-black text-base uppercase">My Cart</h3>
+                <span id="cart-count-drawer" class="bg-[#9acd32] text-[#030602] text-[10px] px-2 py-0.5 rounded-full font-bold">0</span>
+            </div>
+            <button onclick="toggleCart()" class="text-slate-400 hover:text-white p-2 rounded-full hover:bg-white/5 transition">
+                <i class="fa-solid fa-xmark text-xl"></i>
+            </button>
+        </div>
+        <div id="cartItemsList" class="flex-1 overflow-y-auto py-4 space-y-4">
+            <p id="emptyCartMsg" class="text-xs text-slate-500 font-medium text-center py-8">Your cart is empty.</p>
+        </div>
+        <div class="border-t border-white/10 pt-4 space-y-4">
+            <div class="flex items-center justify-between text-sm">
+                <span class="text-slate-400 font-bold">Total:</span>
+                <span id="cartDrawerTotal" class="text-lg font-black text-[#9acd32] font-mono">$0.00</span>
+            </div>
+            <button onclick="checkout()" class="w-full bg-[#9acd32] hover:bg-[#7CB342] text-[#030602] font-black py-4 rounded-xl text-xs uppercase tracking-widest transition">
+                Proceed to Checkout
+            </button>
+            <button onclick="toggleCart()" class="w-full bg-transparent hover:bg-white/5 text-slate-400 font-medium py-3 rounded-xl text-xs transition">
+                Continue Shopping
+            </button>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- ============================================================
+    JAVASCRIPT
+    ============================================================ -->
+    <script>
+        // ============================================================
+        // PRODUCT DATABASE WITH LOCATIONS
+        // ============================================================
+        const allProducts = [
+            { id: 1, name: "Premium Organic Coffee Beans", price: 18.00, category: "food", categoryDisplay: "Food", desc: "Fresh organic coffee beans from Mount Kilimanjaro. Rich aroma and smooth taste.", img: "https://images.unsplash.com/photo-1447933601403-0c6688de566e?auto=format&fit=crop&w=600&q=80", location: "Arusha, Tanzania", seller: "Kilimanjaro Coffee Co.", delivery: "free", stock: "in-stock", trending: true, badge: "Elite", updated: "Today", lat: -3.3667, lng: 36.6833, address: "Sokoine Road, Arusha" },
+            { id: 2, name: "Organic Avocado Oil", price: 12.00, category: "food", categoryDisplay: "Food", desc: "Cold-pressed avocado oil rich in vitamins and healthy fats.", img: "https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?auto=format&fit=crop&w=600&q=80", location: "Nairobi, Kenya", seller: "Green Gold Organics", delivery: "paid", stock: "in-stock", trending: true, badge: "Organic", updated: "Today", lat: -1.2921, lng: 36.8219, address: "Moi Avenue, Nairobi" },
+            { id: 3, name: "Premium Leather Jacket", price: 187.50, category: "fashion", categoryDisplay: "Fashion", desc: "Genuine leather jacket with modern design. Durable and stylish.", img: "https://images.unsplash.com/photo-1551028719-00167b16eac5?auto=format&fit=crop&w=600&q=80", location: "Accra, Ghana", seller: "AfroLeather Co.", delivery: "free", stock: "in-stock", trending: true, badge: "Elite", updated: "Today", lat: 5.6037, lng: -0.1870, address: "Oxford Street, Accra" },
+            { id: 4, name: "Studio Elite Headphone", price: 195.00, category: "electronics", categoryDisplay: "Electronics", desc: "Premium headphones with active noise cancellation.", img: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=600&q=80", location: "Cape Town, South Africa", seller: "AudioTech SA", delivery: "free", stock: "in-stock", trending: true, badge: "Top Rated", updated: "Today", lat: -33.9249, lng: 18.4241, address: "Long Street, Cape Town" },
+            { id: 5, name: "Pro Retina Laptop 14\"", price: 1199.00, category: "electronics", categoryDisplay: "Electronics", desc: "High-performance laptop with retina display. 16GB RAM, 512GB SSD.", img: "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=600&q=80", location: "Dar es Salaam, Tanzania", seller: "TechHub TZ", delivery: "paid", stock: "in-stock", trending: false, badge: "Premium Tech", updated: "3 days ago", lat: -6.7924, lng: 39.2083, address: "Mikocheni B, Dar es Salaam" },
+            { id: 6, name: "Organic Skincare Set", price: 65.00, category: "healthcare", categoryDisplay: "Healthcare", desc: "All-natural skincare set with vitamins and minerals.", img: "https://images.unsplash.com/photo-1556228578-8c89e6adf883?auto=format&fit=crop&w=600&q=80", location: "Mombasa, Kenya", seller: "PureSkin Organics", delivery: "paid", stock: "in-stock", trending: true, badge: "Organic", updated: "Today", lat: -4.0435, lng: 39.6682, address: "Moi Avenue, Mombasa" },
+            { id: 7, name: "University Textbook Bundle", price: 120.00, category: "education", categoryDisplay: "Education", desc: "Complete set of university textbooks for engineering and computer science students.", img: "https://images.unsplash.com/photo-1507842217343-583bb7270b66?auto=format&fit=crop&w=600&q=80", location: "Dar es Salaam, Tanzania", seller: "Academic Books TZ", delivery: "paid", stock: "in-stock", trending: false, badge: "Academic", updated: "5 days ago", lat: -6.7924, lng: 39.2083, address: "Mlimani City, Dar es Salaam" },
+            { id: 8, name: "Business Consulting Package", price: 500.00, category: "business", categoryDisplay: "Business", desc: "Complete business consulting package for startups and small businesses.", img: "https://images.unsplash.com/photo-1559526324-4b87b5e36e44?auto=format&fit=crop&w=600&q=80", location: "Lagos, Nigeria", seller: "BizConsult NG", delivery: "no-delivery", stock: "in-stock", trending: true, badge: "Elite", updated: "Today", lat: 6.5244, lng: 3.3792, address: "Victoria Island, Lagos" },
+            { id: 9, name: "Web Development Course", price: 89.00, category: "technology", categoryDisplay: "Technology", desc: "Complete web development course with HTML, CSS, JavaScript, and React.", img: "https://images.unsplash.com/photo-1461749280684-dccba630e2f6?auto=format&fit=crop&w=600&q=80", location: "Online", seller: "TechAcademy", delivery: "no-delivery", stock: "in-stock", trending: true, badge: "Popular", updated: "Today", lat: 0, lng: 0, address: "Online" },
+            { id: 10, name: "Modern 3-Bedroom Apartment", price: 850.00, category: "realestate", categoryDisplay: "Real Estate", desc: "Modern apartment with 3 bedrooms, 2 bathrooms, and ocean view.", img: "https://images.unsplash.com/photo-1568605114967-8130f3a36994?auto=format&fit=crop&w=600&q=80", location: "Dar es Salaam, Tanzania", seller: "Prime Properties TZ", delivery: "no-delivery", stock: "in-stock", trending: true, badge: "Elite", updated: "Today", lat: -6.7924, lng: 39.2083, address: "Oysterbay, Dar es Salaam" },
+            { id: 11, name: "Fresh Organic Fruits Bundle", price: 25.00, category: "food", categoryDisplay: "Food", desc: "Fresh organic fruits delivered to your doorstep.", img: "https://images.unsplash.com/photo-1610832958506-aa56368176cf?auto=format&fit=crop&w=600&q=80", location: "Dar es Salaam, Tanzania", seller: "FreshFruits TZ", delivery: "free", stock: "in-stock", trending: true, badge: "Organic", updated: "Today", lat: -6.7824, lng: 39.2183, address: "Mikocheni, Dar es Salaam" },
+            { id: 12, name: "Smart Home Security System", price: 299.00, category: "electronics", categoryDisplay: "Electronics", desc: "Complete smart home security system with cameras and sensors.", img: "https://images.unsplash.com/photo-1558002038-1055e2dae1d7?auto=format&fit=crop&w=600&q=80", location: "Dar es Salaam, Tanzania", seller: "SmartTech TZ", delivery: "paid", stock: "in-stock", trending: false, badge: "Premium", updated: "2 days ago", lat: -6.8124, lng: 39.1983, address: "Mlimani City, Dar es Salaam" }
+        ];
+
+        // User's current location (default: Dar es Salaam)
+        let userLocation = { lat: -6.7924, lng: 39.2083 };
+        let userLocationName = "Dar es Salaam";
+        let currentCart = [];
+        let currentCategory = 'all';
+        let currentFilter = 'all';
+        let scannerInstance = null;
+        let qrCodeInstance = null;
+        let adminClickCount = 0;
+        const ADMIN_PASSWORD = 'CITY2026';
+        const INVITE_URL = "https://cityfind.com/invite/CITY2026";
+
+        // ============================================================
+        // DISTANCE CALCULATION (Haversine Formula)
+        // ============================================================
+        function calculateDistance(lat1, lng1, lat2, lng2) {
+            if (lat1 === 0 && lng1 === 0) return Infinity;
+            if (lat2 === 0 && lng2 === 0) return Infinity;
+            
+            const R = 6371; // Earth's radius in km
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLng = (lng2 - lng1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLng/2) * Math.sin(dLng/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c; // Distance in km
+        }
+
+        function getDistanceText(distance) {
+            if (distance === Infinity || distance >= 1000) return "🌍 Very Far";
+            if (distance >= 100) return `📡 ${Math.round(distance)} km`;
+            if (distance >= 10) return `📍 ${Math.round(distance)} km`;
+            if (distance >= 1) return `📌 ${Math.round(distance)} km`;
+            if (distance > 0) return `📍 ${Math.round(distance * 1000)} m`;
+            return "📍 Here";
+        }
+
+        // ============================================================
+        // GET USER LOCATION
+        // ============================================================
+        function getLocation() {
+            if (navigator.geolocation) {
+                showToast("📍 Getting your location...");
+                navigator.geolocation.getCurrentPosition(
+                    function(position) {
+                        userLocation.lat = position.coords.latitude;
+                        userLocation.lng = position.coords.longitude;
+                        userLocationName = "Your Location";
+                        document.getElementById('user-location').textContent = "📍 Your Location";
+                        showToast("✅ Location updated! Products sorted by distance.");
+                        updateProductDisplay();
+                    },
+                    function(error) {
+                        showToast("⚠️ Using default location (Dar es Salaam)");
+                        userLocation = { lat: -6.7924, lng: 39.2083 };
+                        userLocationName = "Dar es Salaam";
+                        document.getElementById('user-location').textContent = "Dar es Salaam";
+                        updateProductDisplay();
+                    }
+                );
+            } else {
+                showToast("⚠️ Geolocation not supported. Using default location.");
+                updateProductDisplay();
+            }
+        }
+
+        // ============================================================
+        // SORT PRODUCTS BY DISTANCE
+        // ============================================================
+        function sortProductsByDistance(products) {
+            return products.map(p => {
+                const distance = calculateDistance(userLocation.lat, userLocation.lng, p.lat, p.lng);
+                return { ...p, distance, distanceText: getDistanceText(distance) };
+            }).sort((a, b) => a.distance - b.distance);
+        }
+
+        // ============================================================
+        // DISPLAY PRODUCTS
+        // ============================================================
+        function renderFilteredProducts(products) {
+            const grid = document.getElementById('products-grid');
+            grid.innerHTML = '';
+            
+            // Sort by distance
+            const sortedProducts = sortProductsByDistance(products);
+            
+            if (sortedProducts.length === 0) {
+                grid.innerHTML = `<div class="col-span-full text-center py-12">
+                    <i class="fa-solid fa-search text-4xl text-slate-600 mb-4"></i>
+                    <p class="text-slate-400">No products found near you</p>
+                </div>`;
+                document.getElementById('product-count').textContent = '0 products';
+                return;
+            }
+            
+            sortedProducts.forEach((p, index) => {
+                const card = document.createElement('div');
+                card.className = 'bg-white rounded-2xl overflow-hidden advanced-card-shadow product-card-hover';
+                const badgeColor = p.stock === 'out-of-stock' ? 'bg-rose-500/10 text-rose-400' : 'bg-[#9acd32]/10 text-[#9acd32]';
+                
+                // Distance badge color based on proximity
+                let distanceColor = 'text-[#9acd32]';
+                if (p.distance > 100) distanceColor = 'text-red-400';
+                else if (p.distance > 50) distanceColor = 'text-amber-400';
+                else if (p.distance > 10) distanceColor = 'text-yellow-400';
+                
+                // Rank badge (1st, 2nd, 3rd)
+                let rankBadge = '';
+                if (index === 0 && p.distance < 10) rankBadge = '<span class="bg-amber-500 text-white text-[8px] font-black px-2 py-0.5 rounded-full ml-1">🏆 1st</span>';
+                else if (index === 1 && p.distance < 10) rankBadge = '<span class="bg-slate-400 text-white text-[8px] font-black px-2 py-0.5 rounded-full ml-1">🥈 2nd</span>';
+                else if (index === 2 && p.distance < 10) rankBadge = '<span class="bg-amber-600 text-white text-[8px] font-black px-2 py-0.5 rounded-full ml-1">🥉 3rd</span>';
+                
+                card.innerHTML = `
+                    <div class="relative cursor-pointer" onclick="showToast('📦 ${p.name}')">
+                        <div class="h-48 overflow-hidden bg-slate-100"><img src="${p.img}" alt="${p.name}" class="w-full h-full object-cover hover:scale-105 transition duration-500"></div>
+                        <div class="absolute top-2 left-2 flex items-center gap-1">
+                            <span class="bg-[#9acd32] text-[#030602] text-[8px] font-black px-2 py-0.5 rounded-full flex items-center gap-0.5">
+                                <span class="text-red-500">★</span> CityFind
+                            </span>
+                            ${rankBadge}
+                        </div>
+                        <div class="absolute top-2 right-2 text-[8px] uppercase font-bold px-2 py-0.5 rounded-full ${badgeColor}">${p.stock === 'in-stock' ? 'In Stock' : 'Out of Stock'}</div>
+                        ${p.delivery === 'free' ? '<div class="absolute bottom-2 left-2 bg-emerald-500/20 text-emerald-400 text-[8px] px-2 py-0.5 rounded-full">Free</div>' : ''}
+                        ${p.trending ? '<div class="absolute bottom-2 right-2 bg-red-500/20 text-red-400 text-[8px] px-2 py-0.5 rounded-full">Trending</div>' : ''}
+                        <div class="absolute bottom-2 left-1/2 transform -translate-x-1/2 bg-black/80 text-white text-[8px] px-3 py-0.5 rounded-full flex items-center gap-1">
+                            <i class="fa-solid fa-location-dot ${distanceColor}"></i>
+                            <span class="${distanceColor}">${p.distanceText}</span>
+                        </div>
+                    </div>
+                    <div class="p-4">
+                        <div class="flex items-center justify-between">
+                            <span class="text-[10px] uppercase tracking-widest font-bold text-slate-400">${p.categoryDisplay}</span>
+                            <span class="text-[9px] text-slate-500"><i class="fa-solid fa-map-pin text-[#9acd32]"></i> ${p.location.split(',')[0]}</span>
+                        </div>
+                        <h3 class="text-sm font-black text-slate-950 tracking-tight leading-snug mt-0.5">${p.name}</h3>
+                        <div class="flex items-center gap-1 mt-0.5"><span class="text-[#fbbf24] text-xs">★★★★★</span><span class="text-[10px] text-slate-400">(4.9)</span></div>
+                        <div class="flex items-center justify-between mt-3">
+                            <span class="text-lg font-black text-slate-950 font-mono">$${p.price.toFixed(2)}</span>
+                            <button onclick="addToCart(${p.id}, '${p.name}', ${p.price}, '${p.img}')" class="bg-slate-950 hover:bg-[#9acd32] text-white hover:text-slate-950 font-bold px-3 py-1.5 rounded-xl text-xs transition"><i class="fa-solid fa-cart-plus"></i> Add</button>
+                        </div>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+            document.getElementById('product-count').textContent = `Showing ${sortedProducts.length} products sorted by distance`;
+        }
+
+        // ============================================================
+        // UPDATE PRODUCT DISPLAY
+        // ============================================================
+        function updateProductDisplay() {
+            const query = document.getElementById('liveSearchInput').value.trim();
+            renderProducts(currentCategory, query);
+            renderTrending();
+        }
+
+        function renderProducts(category = 'all', query = '') {
+            let filtered = [...allProducts];
+            if (category !== 'all') filtered = filtered.filter(p => p.category === category);
+            if (query) {
+                const q = query.toLowerCase();
+                filtered = filtered.filter(p => p.name.toLowerCase().includes(q) || 
+                    p.category.toLowerCase().includes(q) || 
+                    p.location.toLowerCase().includes(q) || 
+                    p.seller.toLowerCase().includes(q) ||
+                    p.address.toLowerCase().includes(q));
+            }
+            renderFilteredProducts(filtered);
+        }
+
+        function renderTrending() {
+            const container = document.getElementById('trending-products');
+            if (!container) return;
+            const trending = sortProductsByDistance(allProducts.filter(p => p.trending)).slice(0, 4);
+            container.innerHTML = '';
+            trending.forEach(p => {
+                const card = document.createElement('div');
+                card.className = 'bg-white/[0.03] rounded-2xl overflow-hidden border border-white/5 hover:border-[#9acd32]/30 transition product-card-hover';
+                const distanceText = getDistanceText(p.distance);
+                card.innerHTML = `
+                    <div class="h-40 overflow-hidden relative">
+                        <img src="${p.img}" alt="${p.name}" class="w-full h-full object-cover">
+                        <div class="absolute bottom-2 left-2 bg-black/70 text-white text-[8px] px-2 py-0.5 rounded-full flex items-center gap-1">
+                            <i class="fa-solid fa-location-dot text-[#9acd32]"></i> ${distanceText}
+                        </div>
+                    </div>
+                    <div class="p-3">
+                        <span class="text-[10px] text-slate-400">${p.categoryDisplay}</span>
+                        <h4 class="text-sm font-bold text-white">${p.name}</h4>
+                        <div class="flex items-center justify-between mt-2">
+                            <span class="text-[#9acd32] font-bold">$${p.price.toFixed(2)}</span>
+                            <button onclick="event.stopPropagation();addToCart(${p.id}, '${p.name}', ${p.price}, '${p.img}')" class="bg-[#9acd32] text-[#030602] text-xs font-bold px-3 py-1 rounded-full hover:bg-[#7CB342] transition"><i class="fa-solid fa-cart-plus"></i></button>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        // ============================================================
+        // LIVE SEARCH WITH DISTANCE SORTING
+        // ============================================================
+        function liveSearch() {
+            const query = document.getElementById('liveSearchInput').value.trim().toLowerCase();
+            const suggestions = document.getElementById('searchSuggestions');
+            
+            if (query.length === 0) { 
+                suggestions.classList.remove('active'); 
+                renderProducts(currentCategory, ''); 
+                return; 
+            }
+            
+            const results = allProducts.filter(p => 
+                p.name.toLowerCase().includes(query) || 
+                p.category.toLowerCase().includes(query) || 
+                p.location.toLowerCase().includes(query) || 
+                p.seller.toLowerCase().includes(query) ||
+                p.address.toLowerCase().includes(query)
+            );
+            
+            // Sort results by distance
+            const sortedResults = sortProductsByDistance(results);
+            
+            if (sortedResults.length === 0) {
+                suggestions.innerHTML = `<div class="search-suggestion-item text-slate-500">
+                    <span class="suggestion-icon"><i class="fa-solid fa-search"></i></span>
+                    No results for "<span class="highlight">${query}</span>"
+                </div>`;
+                suggestions.classList.add('active');
+                renderProducts(currentCategory, query);
+                return;
+            }
+            
+            let html = '';
+            sortedResults.slice(0, 8).forEach(p => {
+                const index = p.name.toLowerCase().indexOf(query);
+                const before = p.name.substring(0, index);
+                const match = p.name.substring(index, index + query.length);
+                const after = p.name.substring(index + query.length);
+                const distanceText = getDistanceText(p.distance);
+                html += `
+                    <div class="search-suggestion-item" onclick="selectSuggestion('${p.name}', ${p.id})">
+                        <span class="suggestion-icon"><i class="fa-solid fa-box"></i></span>
+                        <span>${before}<span class="highlight">${match}</span>${after}</span>
+                        <span class="suggestion-category">${p.categoryDisplay} · $${p.price}</span>
+                        <span class="distance-badge"><i class="fa-solid fa-location-dot"></i> ${distanceText}</span>
+                    </div>
+                `;
+            });
+            suggestions.innerHTML = html;
+            suggestions.classList.add('active');
+            renderProducts(currentCategory, query);
+        }
+
+        function selectSuggestion(name, id) {
+            document.getElementById('liveSearchInput').value = name;
+            document.getElementById('searchSuggestions').classList.remove('active');
+            const product = allProducts.find(p => p.id === id);
+            if (product) { 
+                showToast(`📍 ${product.name} - ${getDistanceText(calculateDistance(userLocation.lat, userLocation.lng, product.lat, product.lng))}`); 
+            }
+            renderProducts(currentCategory, name);
+        }
+
+        function globalSearch() {
+            const query = document.getElementById('liveSearchInput').value.trim();
+            if (!query) { renderProducts(currentCategory, ''); return; }
+            document.getElementById('searchSuggestions').classList.remove('active');
+            renderProducts(currentCategory, query);
+            const results = allProducts.filter(p => p.name.toLowerCase().includes(query.toLowerCase()));
+            showToast(`📍 Found ${results.length} results near you`);
+        }
+
+        // ============================================================
+        // CATEGORY FILTER
+        // ============================================================
+        function updateFilterButtons(activeFilter) {
+            document.querySelectorAll('.category-filter-bar .filter-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.dataset.filter === activeFilter) btn.classList.add('active');
+            });
+        }
+
+        function filterTrending() {
+            currentFilter = 'trending';
+            updateFilterButtons('trending');
+            const trending = allProducts.filter(p => p.trending);
+            renderFilteredProducts(trending);
+            showToast('🔥 Showing trending products near you');
+        }
+
+        function filterPrice(type) {
+            currentFilter = type;
+            updateFilterButtons(type);
+            const sorted = [...allProducts].sort((a, b) => type === 'high' ? b.price - a.price : a.price - b.price);
+            renderFilteredProducts(sorted);
+            showToast(`${type === 'high' ? '💎 High' : '💰 Low'} cost products near you`);
+        }
+
+        function filterDelivery(type) {
+            currentFilter = type;
+            updateFilterButtons(type);
+            const filtered = allProducts.filter(p => p.delivery === type);
+            renderFilteredProducts(filtered);
+            showToast(`${type === 'free' ? '🚚 Free' : '💵 Paid'} delivery products near you`);
+        }
+
+        function filterCategorySearch() {
+            const query = document.getElementById('categorySearchInput').value.trim().toLowerCase();
+            if (!query) { renderProducts(currentCategory, ''); return; }
+            const filtered = allProducts.filter(p => 
+                p.category.toLowerCase().includes(query) || 
+                p.categoryDisplay.toLowerCase().includes(query)
+            );
+            renderFilteredProducts(filtered);
+        }
+
+        function filterCategory(category) {
+            currentCategory = category;
+            currentFilter = 'all';
+            const query = document.getElementById('liveSearchInput').value.trim();
+            updateFilterButtons('all');
+            renderProducts(category, query);
+            showToast(`${category === 'all' ? 'All' : category} products near you`);
+        }
+        window.filterCategory = filterCategory;
+
+        // ============================================================
+        // QR CODE
+        // ============================================================
+        function generateQRCode() {
+            const container = document.getElementById('qrcode');
+            if (container && typeof QRCode !== 'undefined') {
+                container.innerHTML = '';
+                qrCodeInstance = new QRCode(container, {
+                    text: INVITE_URL,
+                    width: 200,
+                    height: 200,
+                    colorDark: '#040702',
+                    colorLight: '#ffffff',
+                    correctLevel: QRCode.CorrectLevel.H
+                });
+            }
+        }
+
+        function copyInviteLink() {
+            navigator.clipboard.writeText(INVITE_URL).then(() => {
+                showToast('📋 Invite link copied to clipboard!');
+            }).catch(() => {
+                const input = document.createElement('input');
+                input.value = INVITE_URL;
+                document.body.appendChild(input);
+                input.select();
+                document.execCommand('copy');
+                document.body.removeChild(input);
+                showToast('📋 Invite link copied!');
+            });
+        }
+
+        function shareInvite(platform) {
+            const text = `Join me on CITYFIND - the best global marketplace! Use my invite link: ${INVITE_URL}`;
+            let url = '';
+            if (platform === 'whatsapp') url = `https://wa.me/?text=${encodeURIComponent(text)}`;
+            else if (platform === 'twitter') url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
+            else if (platform === 'email') url = `mailto:?subject=Join me on CITYFIND&body=${encodeURIComponent(text)}`;
+            else { showToast('Share this link: ' + INVITE_URL); return; }
+            window.open(url, '_blank');
+            showToast(`📱 Sharing on ${platform}...`);
+        }
+
+        function openInviteModal() {
+            document.getElementById('inviteModal').classList.remove('hidden');
+            document.getElementById('inviteModal').classList.add('flex');
+        }
+
+        function closeInviteModal() {
+            document.getElementById('inviteModal').classList.add('hidden');
+            document.getElementById('inviteModal').classList.remove('flex');
+        }
+
+        function openQRCodeExpanded() {
+            showToast('📱 Scan QR code to join CITYFIND!');
+            openInviteModal();
+        }
+
+        // ============================================================
+        // SETTINGS & ADMIN
+        // ============================================================
+        function toggleSettings() {
+            const dropdown = document.getElementById('settingsDropdown');
+            dropdown.classList.toggle('active');
+            adminClickCount++;
+            if (adminClickCount >= 5) {
+                document.getElementById('adminSecretLink').style.display = 'flex';
+                showToast('🔑 Admin Panel unlocked! Click to access.');
+                adminClickCount = 0;
+            }
+        }
+
+        document.addEventListener('click', function(e) {
+            const dropdown = document.getElementById('settingsDropdown');
+            const gearBtn = e.target.closest('#settingsGearBtn');
+            if (!dropdown.contains(e.target) && !gearBtn) dropdown.classList.remove('active');
+        });
+
+        function goToAdmin() {
+            const password = prompt('🔐 Enter admin password:');
+            if (password === ADMIN_PASSWORD) {
+                sessionStorage.setItem('admin_authenticated', 'true');
+                window.location.href = 'dashboard-admin.html';
+            } else {
+                showToast('❌ Incorrect password!');
+            }
+        }
+
+        function logoutUser() {
+            if (confirm('Are you sure you want to logout?')) {
+                showToast('👋 Logged out successfully');
+                setTimeout(() => window.location.href = 'index.html', 1000);
+            }
+        }
+
+        // ============================================================
+        // SCANNER
+        // ============================================================
+        function openScanner() {
+            document.getElementById('scannerModal').classList.remove('hidden');
+            document.getElementById('scannerModal').classList.add('flex');
+            document.getElementById('scanner-result').textContent = 'Position QR code in front of camera';
+        }
+
+        function closeScanner() {
+            document.getElementById('scannerModal').classList.add('hidden');
+            document.getElementById('scannerModal').classList.remove('flex');
+            if (scannerInstance) { scannerInstance.stop(); scannerInstance = null; }
+        }
+
+        function startScanner() {
+            if (scannerInstance) { scannerInstance.resume(); return; }
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                document.getElementById('scanner-result').textContent = 'Camera not supported';
+                return;
+            }
+            try {
+                scannerInstance = new Html5Qrcode("scanner-container");
+                scannerInstance.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 250 } }, onScanSuccess, onScanError);
+                document.getElementById('scanner-result').textContent = 'Scanning...';
+            } catch (err) {
+                document.getElementById('scanner-result').textContent = 'Error: ' + err.message;
+            }
+        }
+
+        function onScanSuccess(decodedText, decodedResult) {
+            document.getElementById('scanner-result').textContent = '✅ Verified!';
+            const found = allProducts.find(p => p.id.toString() === decodedText);
+            if (found) {
+                showToast(`✅ Verified: ${found.name} - ${getDistanceText(calculateDistance(userLocation.lat, userLocation.lng, found.lat, found.lng))}`);
+                closeScanner();
+            } else if (decodedText.includes('cityfind') || decodedText.includes('CITY') || decodedText.includes('CITY2026')) {
+                showToast('🎉 Welcome! You\'ve been invited to CITYFIND!');
+                closeScanner();
+                openInviteModal();
+            } else {
+                showToast(`✅ Code "${decodedText}" verified`);
+                setTimeout(() => { closeScanner(); }, 1500);
+            }
+            if (scannerInstance) { scannerInstance.stop(); scannerInstance = null; }
+        }
+
+        function onScanError(err) {}
+
+        // ============================================================
+        // CART
+        // ============================================================
+        function toggleCart() {
+            document.getElementById('cartDrawer').classList.toggle('open');
+        }
+
+        function addToCart(id, name, price, img) {
+            const existing = currentCart.find(item => item.id === id);
+            if (existing) { existing.qty += 1; showToast(`${name} x${existing.qty}`); }
+            else { currentCart.push({ id, name, price, img, qty: 1 }); showToast(`🛒 ${name} added to cart`); }
+            renderCart();
+        }
+
+        function removeFromCart(id) {
+            const item = currentCart.find(i => i.id === id);
+            if (item) showToast(`🗑️ ${item.name} removed`);
+            currentCart = currentCart.filter(item => item.id !== id);
+            renderCart();
+        }
+
+        function renderCart() {
+            const container = document.getElementById('cartItemsList');
+            const empty = document.getElementById('emptyCartMsg');
+            container.innerHTML = '';
+            if (currentCart.length === 0) { empty.style.display = 'block'; container.appendChild(empty); }
+            else {
+                empty.style.display = 'none';
+                currentCart.forEach(item => {
+                    const row = document.createElement('div');
+                    row.className = 'flex items-center justify-between bg-white/5 p-2 rounded-xl border border-white/5';
+                    row.innerHTML = `
+                        <div class="flex items-center space-x-3 text-left">
+                            <img src="${item.img}" class="w-10 h-10 object-cover rounded-lg">
+                            <div><h5 class="text-xs font-bold text-white">${item.name}</h5>
+                            <span class="text-[10px] font-mono text-slate-400">$${item.price.toFixed(2)} x ${item.qty}</span></div>
+                        </div>
+                        <button onclick="removeFromCart(${item.id})" class="text-red-400 hover:text-red-600 text-xs p-2"><i class="fa-solid fa-trash-can"></i></button>
+                    `;
+                    container.appendChild(row);
+                });
+            }
+            const count = currentCart.reduce((acc, i) => acc + i.qty, 0);
+            const total = currentCart.reduce((acc, i) => acc + (i.price * i.qty), 0);
+            ['cart-count', 'cart-count-top', 'cart-count-drawer'].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = count; });
+            document.getElementById('cartDrawerTotal').textContent = `$${total.toFixed(2)}`;
+        }
+
+        function checkout() {
+            if (currentCart.length === 0) { showToast('🛒 Cart is empty'); return; }
+            const total = currentCart.reduce((acc, i) => acc + (i.price * i.qty), 0);
+            showToast(`🎉 Order of $${total.toFixed(2)} placed successfully!`);
+            currentCart = [];
+            renderCart();
+            toggleCart();
+        }
+
+        // ============================================================
+        // HOME
+        // ============================================================
+        function showHome() {
+            document.getElementById('liveSearchInput').value = '';
+            document.getElementById('searchSuggestions').classList.remove('active');
+            renderTrending();
+            renderProducts();
+            updateFilterButtons('all');
+        }
+
+        // ============================================================
+        // TOAST
+        // ============================================================
+        function showToast(message) {
+            const container = document.getElementById('toastContainer');
+            if (!container) return;
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.innerHTML = `<span>${message}</span><button onclick="this.parentElement.remove()"><i class="fa-solid fa-xmark"></i></button>`;
+            container.appendChild(toast);
+            setTimeout(() => {
+                if (toast.parentElement) {
+                    toast.classList.add('toast-exit');
+                    setTimeout(() => toast.remove(), 300);
+                }
+            }, 4500);
+        }
+
+        // ============================================================
+        // KEYBOARD
+        // ============================================================
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === '/') { e.preventDefault(); document.getElementById('liveSearchInput').focus(); }
+            if (e.key === 'Escape') {
+                closeScanner();
+                closeInviteModal();
+                document.getElementById('searchSuggestions').classList.remove('active');
+                document.getElementById('settingsDropdown').classList.remove('active');
+                if (document.getElementById('cartDrawer').classList.contains('open')) toggleCart();
+            }
+        });
+
+        // ============================================================
+        // INIT
+        // ============================================================
+        document.addEventListener('DOMContentLoaded', function() {
+            // Get user location
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    function(position) {
+                        userLocation.lat = position.coords.latitude;
+                        userLocation.lng = position.coords.longitude;
+                        userLocationName = "Your Location";
+                        document.getElementById('user-location').textContent = "📍 Your Location";
+                        renderTrending();
+                        renderProducts('all', '');
+                        generateQRCode();
+                        showToast('📍 Products sorted by your location!');
+                    },
+                    function(error) {
+                        userLocation = { lat: -6.7924, lng: 39.2083 };
+                        userLocationName = "Dar es Salaam";
+                        document.getElementById('user-location').textContent = "Dar es Salaam";
+                        renderTrending();
+                        renderProducts('all', '');
+                        generateQRCode();
+                        showToast('📍 Using default location (Dar es Salaam)');
+                    }
+                );
+            } else {
+                userLocation = { lat: -6.7924, lng: 39.2083 };
+                userLocationName = "Dar es Salaam";
+                renderTrending();
+                renderProducts('all', '');
+                generateQRCode();
+            }
+
+            document.getElementById('liveSearchInput')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') globalSearch(); });
+            
+            document.addEventListener('click', function(e) {
+                const suggestions = document.getElementById('searchSuggestions');
+                const searchInput = document.getElementById('liveSearchInput');
+                if (!suggestions.contains(e.target) && e.target !== searchInput) suggestions.classList.remove('active');
+            });
+
+            console.log('✅ CITYFIND - Distance-Based Search Active');
+            console.log('📍 User Location:', userLocationName, `(${userLocation.lat}, ${userLocation.lng})`);
+            console.log('📌 Products will be sorted by distance (closest first)');
+            console.log('🔑 Admin: Click gear 5x, password: CITY2026');
+            
+            setTimeout(() => showToast('📍 Products sorted by distance! Closest first.'), 1500);
+        });
+    </script>
+
+</body>
+</html>
