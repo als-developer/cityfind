@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="sw">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CITYFIND · Admin Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background-color: #040702;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            color: #e2e8f0;
+            min-height: 100vh;
+        }
+        .glass-panel {
+            background: rgba(11, 18, 8, 0.65);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(154, 205, 50, 0.08);
+        }
+        .admin-card {
+            transition: all 0.3s ease;
+        }
+        .admin-card:hover {
+            transform: translateY(-4px);
+            border-color: rgba(154, 205, 50, 0.3);
+        }
+        ::-webkit-scrollbar { display: none; }
+        
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+        }
+        .logo-container img {
+            height: 38px;
+            width: auto;
+            object-fit: contain;
+            filter: drop-shadow(0 0 15px rgba(154, 205, 50, 0.15));
+        }
+        .logo-text {
+            font-size: 1.1rem;
+            font-weight: 900;
+            letter-spacing: -0.5px;
+            display: flex;
+            align-items: center;
+        }
+        .logo-text .city { color: #ffffff; }
+        .logo-text .find {
+            color: #030602;
+            background: #9acd32;
+            padding: 0 8px;
+            border-radius: 8px;
+            margin-left: 4px;
+            font-size: 0.75rem;
+            font-weight: 900;
+            letter-spacing: 0.5px;
+            box-shadow: 0 0 20px rgba(154, 205, 50, 0.4);
+        }
+        
+        .toast-container {
+            position: fixed;
+            bottom: 100px;
+            right: 20px;
+            z-index: 9999;
+            max-width: 400px;
+            width: calc(100% - 40px);
+        }
+        .toast {
+            background: rgba(10, 18, 6, 0.95);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(154, 205, 50, 0.2);
+            border-radius: 16px;
+            padding: 0.8rem 1.2rem;
+            color: white;
+            font-size: 0.85rem;
+            animation: toastIn 0.4s ease-out;
+            margin-bottom: 0.6rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+        }
+        .toast button {
+            background: transparent;
+            border: none;
+            color: #6a6a7a;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+        @keyframes toastIn {
+            from { opacity: 0; transform: translateX(30px) scale(0.95); }
+            to { opacity: 1; transform: translateX(0) scale(1); }
+        }
+        
+        .sidebar-item-active {
+            background: linear-gradient(90deg, rgba(154, 205, 50, 0.15) 0%, rgba(154, 205, 50, 0.02) 100%);
+            border-left: 3px solid #9acd32;
+            color: #9acd32;
+        }
+        
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+    </style>
+</head>
+<body>
+
+    <!-- ============================================================
+    ADMIN HEADER
+    ============================================================ -->
+    <header class="bg-[#0a0a0f] border-b border-[#9acd32]/20 px-6 py-4">
+        <div class="max-w-7xl mx-auto flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="logo-container" onclick="window.location.href='index.html'">
+                    <img src="https://files.catbox.moe/6voiyk.png" alt="CITYFIND Logo" />
+                    <div class="logo-text">
+                        <span class="city">CITY</span>
+                        <span class="find">FIND</span>
+                    </div>
+                </div>
+                <span class="text-[10px] bg-purple-500/20 text-purple-400 px-2 py-0.5 ml-2 rounded-full">Admin</span>
+                <span class="text-[10px] bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full">🔒 Secure</span>
+            </div>
+            <div class="flex items-center gap-4">
+                <button onclick="window.location.href='index.html'" class="text-slate-400 hover:text-white transition text-sm flex items-center gap-2">
+                    <i class="fa-solid fa-arrow-left"></i> Back to Main
+                </button>
+                <button onclick="logoutAdmin()" class="text-red-400 hover:text-red-300 transition text-sm flex items-center gap-2">
+                    <i class="fa-solid fa-sign-out-alt"></i> Logout
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- ============================================================
+    ADMIN CONTENT
+    ============================================================ -->
+    <div class="flex min-h-[calc(100vh-70px)]">
+        
+        <!-- SIDEBAR -->
+        <aside class="w-72 bg-[#060a03]/90 border-r border-white/5 p-6 shrink-0">
+            <nav class="space-y-1">
+                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block pl-3 mb-2">Management</span>
+                
+                <button onclick="switchTab('tab-dashboard')" id="navbtn-tab-dashboard" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold text-slate-400 hover:text-white transition hover:bg-white/[0.01] sidebar-item-active">
+                    <i class="fa-solid fa-chart-pie w-4 text-center text-[#9acd32]"></i>
+                    <span>Dashboard</span>
+                </button>
+
+                <button onclick="switchTab('tab-users')" id="navbtn-tab-users" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold text-slate-400 hover:text-white transition hover:bg-white/[0.01]">
+                    <i class="fa-solid fa-users w-4 text-center text-blue-400"></i>
+                    <span>Users</span>
+                </button>
+
+                <button onclick="switchTab('tab-sellers')" id="navbtn-tab-sellers" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold text-slate-400 hover:text-white transition hover:bg-white/[0.01]">
+                    <i class="fa-solid fa-store w-4 text-center text-amber-500"></i>
+                    <span>Sellers</span>
+                </button>
+
+                <button onclick="switchTab('tab-products')" id="navbtn-tab-products" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold text-slate-400 hover:text-white transition hover:bg-white/[0.01]">
+                    <i class="fa-solid fa-boxes w-4 text-center text-emerald-400"></i>
+                    <span>Products</span>
+                </button>
+
+                <button onclick="switchTab('tab-orders')" id="navbtn-tab-orders" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold text-slate-400 hover:text-white transition hover:bg-white/[0.01]">
+                    <i class="fa-solid fa-truck w-4 text-center text-yellow-400"></i>
+                    <span>Orders</span>
+                </button>
+
+                <button onclick="switchTab('tab-payments')" id="navbtn-tab-payments" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold text-slate-400 hover:text-white transition hover:bg-white/[0.01]">
+                    <i class="fa-solid fa-credit-card w-4 text-center text-purple-400"></i>
+                    <span>Payments</span>
+                </button>
+
+                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block pl-3 pt-4 mb-2">System</span>
+
+                <button onclick="switchTab('tab-analytics')" id="navbtn-tab-analytics" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold text-slate-400 hover:text-white transition hover:bg-white/[0.01]">
+                    <i class="fa-solid fa-chart-line w-4 text-center text-cyan-400"></i>
+                    <span>Analytics</span>
+                </button>
+
+                <button onclick="switchTab('tab-settings')" id="navbtn-tab-settings" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold text-slate-400 hover:text-white transition hover:bg-white/[0.01]">
+                    <i class="fa-solid fa-gear w-4 text-center"></i>
+                    <span>Settings</span>
+                </button>
+
+                <button onclick="switchTab('tab-logs')" id="navbtn-tab-logs" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold text-slate-400 hover:text-white transition hover:bg-white/[0.01]">
+                    <i class="fa-solid fa-clipboard-list w-4 text-center"></i>
+                    <span>Activity Logs</span>
+                </button>
+            </nav>
+        </aside>
+
+        <!-- MAIN CONTENT -->
+        <main class="flex-1 p-6 md:p-8 overflow-y-auto max-h-[calc(100vh-70px)]">
+            <div class="max-w-7xl mx-auto space-y-8">
+
+                <!-- ============================================================
+                TAB: DASHBOARD
+                ============================================================ -->
+                <div id="tab-dashboard" class="tab-content active space-y-8">
+                    <div>
+                        <h3 class="text-2xl font-extrabold text-white">Admin Dashboard</h3>
+                        <p class="text-xs text-slate-500">Overview of the entire platform.</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div class="glass-panel p-5 rounded-2xl border border-white/5 admin-card">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs text-slate-400 uppercase tracking-wider">Total Users</span>
+                                <i class="fa-solid fa-users text-[#9acd32] text-xl"></i>
+                            </div>
+                            <span class="text-3xl font-black text-white block mt-2" id="stat-users">12,847</span>
+                            <span class="text-[10px] text-emerald-400">↑ 12% this week</span>
+                        </div>
+                        <div class="glass-panel p-5 rounded-2xl border border-white/5 admin-card">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs text-slate-400 uppercase tracking-wider">Total Sellers</span>
+                                <i class="fa-solid fa-store text-amber-400 text-xl"></i>
+                            </div>
+                            <span class="text-3xl font-black text-white block mt-2" id="stat-sellers">1,247</span>
+                            <span class="text-[10px] text-emerald-400">↑ 5% this week</span>
+                        </div>
+                        <div class="glass-panel p-5 rounded-2xl border border-white/5 admin-card">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs text-slate-400 uppercase tracking-wider">Total Products</span>
+                                <i class="fa-solid fa-boxes text-emerald-400 text-xl"></i>
+                            </div>
+                            <span class="text-3xl font-black text-white block mt-2" id="stat-products">3,892</span>
+                            <span class="text-[10px] text-emerald-400">↑ 8% this week</span>
+                        </div>
+                        <div class="glass-panel p-5 rounded-2xl border border-white/5 admin-card">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs text-slate-400 uppercase tracking-wider">Revenue</span>
+                                <i class="fa-solid fa-dollar-sign text-yellow-400 text-xl"></i>
+                            </div>
+                            <span class="text-3xl font-black text-white block mt-2" id="stat-revenue">$89M</span>
+                            <span class="text-[10px] text-emerald-400">↑ 15% this week</span>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="glass-panel p-6 rounded-2xl border border-white/5">
+                            <h4 class="font-bold text-white text-sm mb-4"><i class="fa-solid fa-clock text-slate-400 mr-2"></i> Recent Activity</h4>
+                            <div class="space-y-2 text-xs">
+                                <div class="flex items-center justify-between p-2 bg-white/5 rounded">
+                                    <span><span class="text-[#9acd32]">John M.</span> listed a new product</span>
+                                    <span class="text-slate-500">2 min ago</span>
+                                </div>
+                                <div class="flex items-center justify-between p-2 bg-white/5 rounded">
+                                    <span><span class="text-[#9acd32]">Sarah K.</span> placed an order</span>
+                                    <span class="text-slate-500">15 min ago</span>
+                                </div>
+                                <div class="flex items-center justify-between p-2 bg-white/5 rounded">
+                                    <span><span class="text-[#9acd32]">David R.</span> registered as seller</span>
+                                    <span class="text-slate-500">1 hour ago</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="glass-panel p-6 rounded-2xl border border-white/5">
+                            <h4 class="font-bold text-white text-sm mb-4"><i class="fa-solid fa-exclamation-triangle text-amber-500 mr-2"></i> Quick Actions</h4>
+                            <div class="space-y-2">
+                                <button onclick="showToast('👤 User list opened')" class="w-full text-left text-xs text-slate-400 hover:text-white hover:bg-white/5 p-2 rounded transition">View All Users</button>
+                                <button onclick="showToast('⚙️ Maintenance mode toggled')" class="w-full text-left text-xs text-slate-400 hover:text-white hover:bg-white/5 p-2 rounded transition">Toggle Maintenance Mode</button>
+                                <button onclick="showToast('🔄 System backup initiated')" class="w-full text-left text-xs text-slate-400 hover:text-white hover:bg-white/5 p-2 rounded transition">Backup System</button>
+                                <button onclick="showToast('📧 Daily update sent to all sellers')" class="w-full text-left text-xs text-slate-400 hover:text-[#9acd32] hover:bg-white/5 p-2 rounded transition">Send Daily Update</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-purple-950/20 border border-purple-500/20 rounded-2xl p-4 text-center">
+                        <p class="text-xs text-purple-400">
+                            <i class="fa-solid fa-shield-halved mr-2"></i>
+                            Secure Admin Panel · All actions are logged · Access restricted
+                        </p>
+                    </div>
+                </div>
+
+                <!-- ============================================================
+                TAB: USERS
+                ============================================================ -->
+                <div id="tab-users" class="tab-content hidden space-y-6">
+                    <div>
+                        <h3 class="text-2xl font-extrabold text-white">User Management</h3>
+                        <p class="text-xs text-slate-500">Manage all platform users.</p>
+                    </div>
+                    <div class="flex gap-2 flex-wrap">
+                        <button onclick="showToast('👤 All users loaded')" class="bg-white/5 hover:bg-white/10 text-white font-bold px-4 py-2 rounded-xl text-xs transition">All Users</button>
+                        <button onclick="showToast('🛒 Buyers loaded')" class="bg-white/5 hover:bg-white/10 text-white font-bold px-4 py-2 rounded-xl text-xs transition">Buyers</button>
+                        <button onclick="showToast('🏪 Sellers loaded')" class="bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 font-bold px-4 py-2 rounded-xl text-xs transition">Sellers</button>
+                        <button onclick="showToast('🔑 Admins loaded')" class="bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 font-bold px-4 py-2 rounded-xl text-xs transition">Admins</button>
+                        <button onclick="showToast('📧 Invitation sent')" class="bg-[#9acd32] text-[#030602] font-bold px-4 py-2 rounded-xl text-xs transition">+ Invite User</button>
+                    </div>
+                    <div class="glass-panel border border-white/5 rounded-2xl overflow-hidden">
+                        <table class="w-full text-xs">
+                            <thead class="bg-white/5 text-slate-400 uppercase text-[9px]">
+                                <tr><th class="p-3 text-left">User</th><th class="p-3 text-left">Email</th><th class="p-3 text-left">Role</th><th class="p-3 text-left">Status</th><th class="p-3 text-left">Action</th></tr>
+                            </thead>
+                            <tbody id="users-table-body">
+                                <tr class="border-t border-white/5"><td class="p-3 font-medium text-white">Ali Hassan</td><td class="p-3 text-slate-400">ali@cityfind.com</td><td class="p-3 text-amber-400">Admin</td><td class="p-3"><span class="bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full text-[8px]">Active</span></td><td class="p-3"><button onclick="showToast('👤 User details')" class="text-[#9acd32] hover:underline">View</button></td></tr>
+                                <tr class="border-t border-white/5"><td class="p-3 font-medium text-white">Sarah K.</td><td class="p-3 text-slate-400">sarah@cityfind.com</td><td class="p-3 text-blue-400">Seller</td><td class="p-3"><span class="bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full text-[8px]">Active</span></td><td class="p-3"><button onclick="showToast('👤 User details')" class="text-[#9acd32] hover:underline">View</button></td></tr>
+                                <tr class="border-t border-white/5"><td class="p-3 font-medium text-white">John M.</td><td class="p-3 text-slate-400">john@cityfind.com</td><td class="p-3 text-emerald-400">Buyer</td><td class="p-3"><span class="bg-rose-500/20 text-rose-400 px-2 py-0.5 rounded-full text-[8px]">Suspended</span></td><td class="p-3"><button onclick="showToast('👤 User details')" class="text-[#9acd32] hover:underline">View</button></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- ============================================================
+                TAB: SELLERS
+                ============================================================ -->
+                <div id="tab-sellers" class="tab-content hidden space-y-6">
+                    <div>
+                        <h3 class="text-2xl font-extrabold text-white">Seller Management</h3>
+                        <p class="text-xs text-slate-500">Manage all sellers on the platform.</p>
+                    </div>
+                    <div class="flex gap-2 flex-wrap">
+                        <button onclick="showToast('🏪 All sellers loaded')" class="bg-white/5 hover:bg-white/10 text-white font-bold px-4 py-2 rounded-xl text-xs transition">All Sellers</button>
+                        <button onclick="showToast('✅ Approved sellers')" class="bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 font-bold px-4 py-2 rounded-xl text-xs transition">Approved</button>
+                        <button onclick="showToast('⏳ Pending sellers')" class="bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 font-bold px-4 py-2 rounded-xl text-xs transition">Pending</button>
+                        <button onclick="showToast('📊 Seller analytics')" class="bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 font-bold px-4 py-2 rounded-xl text-xs transition">Analytics</button>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="glass-panel p-4 rounded-2xl border border-white/5">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-xl bg-[#9acd32]/10 flex items-center justify-center text-[#9acd32]">🏪</div>
+                                <div><h4 class="font-bold text-white text-sm">Sarah K.</h4><p class="text-[10px] text-slate-400">Fashion Store</p></div>
+                            </div>
+                            <div class="flex justify-between mt-2 text-xs"><span class="text-slate-500">Products: 23</span><span class="text-emerald-400">Active</span></div>
+                            <button onclick="showToast('🏪 Seller details')" class="w-full mt-2 bg-white/5 hover:bg-white/10 text-white text-xs py-1.5 rounded transition">View Details</button>
+                        </div>
+                        <div class="glass-panel p-4 rounded-2xl border border-white/5">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-400">📚</div>
+                                <div><h4 class="font-bold text-white text-sm">John M.</h4><p class="text-[10px] text-slate-400">Book Store</p></div>
+                            </div>
+                            <div class="flex justify-between mt-2 text-xs"><span class="text-slate-500">Products: 12</span><span class="text-amber-400">Pending</span></div>
+                            <button onclick="showToast('✅ Approve seller?')" class="w-full mt-2 bg-[#9acd32]/20 hover:bg-[#9acd32]/30 text-[#9acd32] text-xs py-1.5 rounded transition">Approve</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ============================================================
+                TAB: PRODUCTS
+                ============================================================ -->
+                <div id="tab-products" class="tab-content hidden space-y-6">
+                    <div>
+                        <h3 class="text-2xl font-extrabold text-white">Product Management</h3>
+                        <p class="text-xs text-slate-500">Manage all products across the platform.</p>
+                    </div>
+                    <div class="flex gap-2 flex-wrap">
+                        <button onclick="showToast('📦 All products loaded')" class="bg-white/5 hover:bg-white/10 text-white font-bold px-4 py-2 rounded-xl text-xs transition">All Products</button>
+                        <button onclick="showToast('⏳ Pending products')" class="bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 font-bold px-4 py-2 rounded-xl text-xs transition">Pending</button>
+                        <button onclick="showToast('✅ Approved products')" class="bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 font-bold px-4 py-2 rounded-xl text-xs transition">Approved</button>
+                        <button onclick="showToast('🚫 Reported products')" class="bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 font-bold px-4 py-2 rounded-xl text-xs transition">Reported</button>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="glass-panel p-4 rounded-2xl border border-white/5 flex items-center gap-4">
+                            <div class="w-16 h-16 rounded-xl bg-slate-800 overflow-hidden"><img src="https://images.unsplash.com/photo-1447933601403-0c6688de566e?auto=format&fit=crop&w=100&q=80" class="w-full h-full object-cover"></div>
+                            <div class="flex-1"><h4 class="font-bold text-white text-sm">Organic Coffee Beans</h4><p class="text-[10px] text-slate-400">Food · $18.00</p></div>
+                            <button onclick="showToast('📦 Product details')" class="text-[#9acd32] text-xs hover:underline">View</button>
+                        </div>
+                        <div class="glass-panel p-4 rounded-2xl border border-white/5 flex items-center gap-4">
+                            <div class="w-16 h-16 rounded-xl bg-slate-800 overflow-hidden"><img src="https://images.unsplash.com/photo-1551028719-00167b16eac5?auto=format&fit=crop&w=100&q=80" class="w-full h-full object-cover"></div>
+                            <div class="flex-1"><h4 class="font-bold text-white text-sm">Leather Jacket</h4><p class="text-[10px] text-slate-400">Fashion · $187.50</p></div>
+                            <button onclick="showToast('📦 Product details')" class="text-[#9acd32] text-xs hover:underline">View</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ============================================================
+                TAB: ORDERS
+                ============================================================ -->
+                <div id="tab-orders" class="tab-content hidden space-y-6">
+                    <div>
+                        <h3 class="text-2xl font-extrabold text-white">Order Management</h3>
+                        <p class="text-xs text-slate-500">Track and manage all orders.</p>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div class="glass-panel p-4 rounded-2xl border border-white/5"><span class="text-xs text-slate-500">Pending</span><div class="text-2xl font-black text-white">24</div></div>
+                        <div class="glass-panel p-4 rounded-2xl border border-white/5"><span class="text-xs text-slate-500">Processing</span><div class="text-2xl font-black text-white">18</div></div>
+                        <div class="glass-panel p-4 rounded-2xl border border-white/5"><span class="text-xs text-slate-500">Dispatched</span><div class="text-2xl font-black text-white">12</div></div>
+                        <div class="glass-panel p-4 rounded-2xl border border-white/5"><span class="text-xs text-slate-500">Completed</span><div class="text-2xl font-black text-white">45</div></div>
+                    </div>
+                    <div class="glass-panel border border-white/5 rounded-2xl overflow-hidden">
+                        <table class="w-full text-xs">
+                            <thead class="bg-white/5 text-slate-400 uppercase text-[9px]">
+                                <tr><th class="p-3 text-left">Order ID</th><th class="p-3 text-left">Customer</th><th class="p-3 text-left">Total</th><th class="p-3 text-left">Status</th><th class="p-3 text-left">Action</th></tr>
+                            </thead>
+                            <tbody>
+                                <tr class="border-t border-white/5"><td class="p-3 font-mono font-bold text-white">#CF-2026-001</td><td class="p-3 text-slate-400">Fatuma R.</td><td class="p-3 font-bold text-[#9acd32]">$145.00</td><td class="p-3"><span class="bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full text-[8px]">Pending</span></td><td class="p-3"><button onclick="showToast('📦 Order details')" class="text-[#9acd32] hover:underline">View</button></td></tr>
+                                <tr class="border-t border-white/5"><td class="p-3 font-mono font-bold text-white">#CF-2026-002</td><td class="p-3 text-slate-400">Juma H.</td><td class="p-3 font-bold text-[#9acd32]">$89.00</td><td class="p-3"><span class="bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full text-[8px]">Completed</span></td><td class="p-3"><button onclick="showToast('📦 Order details')" class="text-[#9acd32] hover:underline">View</button></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- ============================================================
+                TAB: PAYMENTS
+                ============================================================ -->
+                <div id="tab-payments" class="tab-content hidden space-y-6">
+                    <div>
+                        <h3 class="text-2xl font-extrabold text-white">Payment Management</h3>
+                        <p class="text-xs text-slate-500">Monitor all transactions and payments.</p>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="glass-panel p-4 rounded-2xl border border-white/5"><span class="text-xs text-slate-500">Total Transactions</span><div class="text-2xl font-black text-white">1,234</div></div>
+                        <div class="glass-panel p-4 rounded-2xl border border-white/5"><span class="text-xs text-slate-500">Total Revenue</span><div class="text-2xl font-black text-[#9acd32]">$89,456</div></div>
+                        <div class="glass-panel p-4 rounded-2xl border border-white/5"><span class="text-xs text-slate-500">Pending Payouts</span><div class="text-2xl font-black text-amber-400">$12,340</div></div>
+                    </div>
+                    <div class="glass-panel border border-white/5 rounded-2xl p-4">
+                        <h4 class="font-bold text-white text-sm mb-3">Recent Transactions</h4>
+                        <div class="space-y-2 text-xs">
+                            <div class="flex items-center justify-between p-2 bg-white/5 rounded"><span>#TX-2026-001</span><span class="text-slate-400">Seller: Sarah K.</span><span class="text-[#9acd32] font-bold">$45.00</span><span class="text-emerald-400">Completed</span></div>
+                            <div class="flex items-center justify-between p-2 bg-white/5 rounded"><span>#TX-2026-002</span><span class="text-slate-400">Seller: John M.</span><span class="text-amber-400 font-bold">$120.00</span><span class="text-amber-400">Pending</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ============================================================
+                TAB: ANALYTICS
+                ============================================================ -->
+                <div id="tab-analytics" class="tab-content hidden space-y-6">
+                    <div>
+                        <h3 class="text-2xl font-extrabold text-white">Analytics</h3>
+                        <p class="text-xs text-slate-500">Platform performance and insights.</p>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="glass-panel p-6 rounded-2xl border border-white/5">
+                            <h4 class="font-bold text-white text-sm mb-3">Weekly Visitors</h4>
+                            <div class="flex items-end gap-2 h-32">
+                                <div class="flex-1 bg-[#9acd32]/30 h-[60%] rounded-t"></div>
+                                <div class="flex-1 bg-[#9acd32]/50 h-[80%] rounded-t"></div>
+                                <div class="flex-1 bg-[#9acd32]/70 h-[45%] rounded-t"></div>
+                                <div class="flex-1 bg-[#9acd32] h-[90%] rounded-t"></div>
+                                <div class="flex-1 bg-[#9acd32]/70 h-[70%] rounded-t"></div>
+                                <div class="flex-1 bg-[#9acd32]/50 h-[55%] rounded-t"></div>
+                                <div class="flex-1 bg-[#9acd32]/30 h-[40%] rounded-t"></div>
+                            </div>
+                            <div class="flex justify-between text-[9px] text-slate-500 mt-2"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span></div>
+                        </div>
+                        <div class="glass-panel p-6 rounded-2xl border border-white/5">
+                            <h4 class="font-bold text-white text-sm mb-3">Top Categories</h4>
+                            <div class="space-y-2">
+                                <div><span class="text-slate-400 text-xs">Electronics</span><div class="w-full bg-white/5 rounded-full h-1.5"><div class="bg-[#9acd32] h-1.5 rounded-full" style="width:45%"></div></div></div>
+                                <div><span class="text-slate-400 text-xs">Fashion</span><div class="w-full bg-white/5 rounded-full h-1.5"><div class="bg-emerald-400 h-1.5 rounded-full" style="width:30%"></div></div></div>
+                                <div><span class="text-slate-400 text-xs">Food</span><div class="w-full bg-white/5 rounded-full h-1.5"><div class="bg-amber-400 h-1.5 rounded-full" style="width:20%"></div></div></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ============================================================
+                TAB: SETTINGS
+                ============================================================ -->
+                <div id="tab-settings" class="tab-content hidden space-y-6">
+                    <div>
+                        <h3 class="text-2xl font-extrabold text-white">System Settings</h3>
+                        <p class="text-xs text-slate-500">Configure platform settings.</p>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="glass-panel p-6 rounded-2xl border border-white/5">
+                            <h4 class="font-bold text-white text-sm mb-3">General</h4>
+                            <div class="space-y-3 text-xs">
+                                <div class="flex items-center justify-between"><span class="text-slate-400">Platform Status</span><span class="bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full">Live</span></div>
+                                <div class="flex items-center justify-between"><span class="text-slate-400">Maintenance Mode</span><button onclick="showToast('⚙️ Maintenance toggled')" class="bg-white/5 hover:bg-white/10 text-white px-3 py-1 rounded">Toggle</button></div>
+                                <div class="flex items-center justify-between"><span class="text-slate-400">Allow New Sellers</span><button onclick="showToast('✅ Setting updated')" class="bg-emerald-500/20 text-emerald-400 px-3 py-1 rounded">Enabled</button></div>
+                            </div>
+                        </div>
+                        <div class="glass-panel p-6 rounded-2xl border border-white/5">
+                            <h4 class="font-bold text-white text-sm mb-3">Security</h4>
+                            <div class="space-y-3 text-xs">
+                                <div class="flex items-center justify-between"><span class="text-slate-400">2FA Required</span><button onclick="showToast('✅ Setting updated')" class="bg-emerald-500/20 text-emerald-400 px-3 py-1 rounded">Enabled</button></div>
+                                <div class="flex items-center justify-between"><span class="text-slate-400">Session Timeout</span><span class="text-white">30 min</span></div>
+                                <button onclick="showToast('🔄 All sessions cleared')" class="bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 px-4 py-2 rounded text-xs">Clear All Sessions</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ============================================================
+                TAB: LOGS
+                ============================================================ -->
+                <div id="tab-logs" class="tab-content hidden space-y-6">
+                    <div>
+                        <h3 class="text-2xl font-extrabold text-white">Activity Logs</h3>
+                        <p class="text-xs text-slate-500">All system activities and admin actions.</p>
+                    </div>
+                    <div class="glass-panel border border-white/5 rounded-2xl p-4">
+                        <div class="space-y-2 text-xs">
+                            <div class="flex items-center justify-between p-2 bg-white/5 rounded"><span class="text-slate-400">[Admin] Ali H. logged in</span><span class="text-slate-500">2 min ago</span></div>
+                            <div class="flex items-center justify-between p-2 bg-white/5 rounded"><span class="text-slate-400">[System] Daily backup completed</span><span class="text-slate-500">1 hour ago</span></div>
+                            <div class="flex items-center justify-between p-2 bg-white/5 rounded"><span class="text-slate-400">[Admin] Sarah K. approved seller</span><span class="text-slate-500">3 hours ago</span></div>
+                            <div class="flex items-center justify-between p-2 bg-white/5 rounded"><span class="text-slate-400">[System] New update deployed</span><span class="text-slate-500">5 hours ago</span></div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- ============================================================
+    TOAST
+    ============================================================ -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <script>
+        // ============================================================
+        // ADMIN AUTHENTICATION
+        // ============================================================
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check if admin is authenticated
+            if (!sessionStorage.getItem('admin_authenticated')) {
+                alert('❌ Unauthorized access! Please login from main page.');
+                window.location.href = 'index.html';
+            }
+        });
+
+        // ============================================================
+        // TAB SWITCHER
+        // ============================================================
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            document.querySelectorAll('aside nav button').forEach(btn => btn.classList.remove('sidebar-item-active'));
+            const activeBtn = document.getElementById(`navbtn-${tabId}`);
+            if (activeBtn) activeBtn.classList.add('sidebar-item-active');
+        }
+
+        // ============================================================
+        // TOAST
+        // ============================================================
+        function showToast(message) {
+            const container = document.getElementById('toastContainer');
+            if (!container) return;
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.innerHTML = `<span>${message}</span><button onclick="this.parentElement.remove()"><i class="fa-solid fa-xmark"></i></button>`;
+            container.appendChild(toast);
+            setTimeout(() => {
+                if (toast.parentElement) {
+                    toast.classList.add('toast-exit');
+                    setTimeout(() => toast.remove(), 300);
+                }
+            }, 4500);
+        }
+
+        // ============================================================
+        // LOGOUT
+        // ============================================================
+        function logoutAdmin() {
+            if (confirm('Are you sure you want to logout?')) {
+                sessionStorage.removeItem('admin_authenticated');
+                showToast('👋 Logged out successfully');
+                setTimeout(() => window.location.href = 'index.html', 1000);
+            }
+        }
+
+        console.log('✅ CITYFIND Admin Dashboard');
+        console.log('🔐 Secure Admin Panel - Access Restricted');
+        console.log('🛡️ Admin access only - Hidden from regular users');
+    </script>
+
+</body>
+</html>
