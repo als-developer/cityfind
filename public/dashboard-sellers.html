@@ -1,0 +1,892 @@
+<!DOCTYPE html>
+<html lang="sw">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CITYFIND · Seller Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background-color: #040702;
+            background-image: radial-gradient(circle at 0% 0%, rgba(154, 205, 50, 0.05) 0%, transparent 40%),
+                radial-gradient(circle at 100% 100%, rgba(154, 205, 50, 0.02) 0%, transparent 40%);
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            color: #f1f5f9;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        ::-webkit-scrollbar { display: none; }
+        
+        .glass-panel {
+            background: rgba(11, 18, 8, 0.65);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(154, 205, 50, 0.08);
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .glass-card:hover {
+            background: rgba(255, 255, 255, 0.04);
+            border-color: rgba(154, 205, 50, 0.2);
+        }
+        .stat-card {
+            transition: all 0.3s ease;
+        }
+        .stat-card:hover {
+            transform: translateY(-4px);
+            border-color: rgba(154, 205, 50, 0.3);
+        }
+        .product-card {
+            transition: all 0.3s ease;
+        }
+        .product-card:hover {
+            transform: translateY(-6px);
+            border-color: rgba(154, 205, 50, 0.2);
+            box-shadow: 0 12px 40px rgba(154, 205, 50, 0.08);
+        }
+        .sidebar-item-active {
+            background: linear-gradient(90deg, rgba(154, 205, 50, 0.15) 0%, rgba(154, 205, 50, 0.02) 100%);
+            border-left: 3px solid #9acd32;
+            color: #9acd32;
+        }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+        }
+        .logo-container img {
+            height: 36px;
+            width: auto;
+            object-fit: contain;
+            filter: drop-shadow(0 0 15px rgba(154, 205, 50, 0.15));
+        }
+        .logo-text {
+            font-size: 1.2rem;
+            font-weight: 900;
+            letter-spacing: -0.5px;
+            display: flex;
+            align-items: center;
+        }
+        .logo-text .city { color: #ffffff; }
+        .logo-text .find {
+            color: #030602;
+            background: #9acd32;
+            padding: 0 8px;
+            border-radius: 8px;
+            margin-left: 4px;
+            font-size: 0.8rem;
+            font-weight: 900;
+            letter-spacing: 0.5px;
+            box-shadow: 0 0 20px rgba(154, 205, 50, 0.4);
+        }
+        
+        .toast-container {
+            position: fixed;
+            bottom: 100px;
+            right: 20px;
+            z-index: 9999;
+            max-width: 400px;
+            width: calc(100% - 40px);
+        }
+        .toast {
+            background: rgba(10, 18, 6, 0.95);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(154, 205, 50, 0.2);
+            border-radius: 16px;
+            padding: 0.8rem 1.2rem;
+            color: white;
+            font-size: 0.85rem;
+            animation: toastIn 0.4s ease-out;
+            margin-bottom: 0.6rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+        }
+        .toast button {
+            background: transparent;
+            border: none;
+            color: #6a6a7a;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+        @keyframes toastIn {
+            from { opacity: 0; transform: translateX(30px) scale(0.95); }
+            to { opacity: 1; transform: translateX(0) scale(1); }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- HEADER -->
+    <div class="bg-[#080e05] border-b border-white/5 px-6 py-2.5 flex items-center justify-between text-xs text-slate-400 z-50 relative">
+        <div class="flex items-center gap-6">
+            <div class="logo-container" onclick="window.location.href='index.html'">
+                <img src="https://files.catbox.moe/6voiyk.png" alt="CITYFIND Logo" />
+                <div class="logo-text">
+                    <span class="city">CITY</span>
+                    <span class="find">FIND</span>
+                    <span class="badge-star">★</span>
+                </div>
+            </div>
+            <span class="hidden md:inline text-white/10">|</span>
+            <span class="hidden md:inline"><i class="fa-solid fa-store text-amber-500 mr-1.5"></i> Seller Dashboard</span>
+        </div>
+        <div class="flex items-center gap-4">
+            <button onclick="window.location.href='index.html'" class="text-slate-400 hover:text-white transition text-xs flex items-center gap-2">
+                <i class="fa-solid fa-arrow-left"></i> Back to Main
+            </button>
+            <button onclick="window.location.href='dashboard-buyer.html'" class="text-slate-400 hover:text-[#9acd32] transition text-xs flex items-center gap-2">
+                <i class="fa-solid fa-shopping-cart"></i> Switch to Buyer
+            </button>
+            <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-yg to-lime-500 text-slate-950 font-black flex items-center justify-center text-xs relative">
+                AH
+                <span class="absolute -bottom-1 -right-1 text-[8px] text-red-500">★</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN WRAPPER -->
+    <div class="flex min-h-[calc(100vh-50px)]">
+        
+        <!-- SIDEBAR -->
+        <aside class="w-80 bg-[#060a03]/90 border-r border-white/5 flex flex-col justify-between shrink-0 p-6 transition-all duration-300">
+            <div class="space-y-8">
+                <div class="bg-white/[0.02] border border-white/5 p-4 rounded-2xl">
+                    <div class="flex items-center gap-3">
+                        <div class="w-12 h-12 rounded-xl bg-slate-800 border border-white/10 overflow-hidden flex items-center justify-center text-slate-300 relative">
+                            <img id="sidebar-profile-img" src="" alt="Avatar" class="w-full h-full object-cover hidden">
+                            <i class="fa-solid fa-store text-2xl text-[#9acd32]"></i>
+                        </div>
+                        <div class="overflow-hidden">
+                            <h3 id="nav-business-name" class="text-xs font-bold text-white truncate">My Store</h3>
+                            <p id="nav-business-cat" class="text-[10px] text-slate-500 truncate">Seller</p>
+                            <div class="flex items-center gap-1 mt-0.5">
+                                <span class="text-[8px] text-[#fbbf24]">★★★★☆</span>
+                                <span class="text-[8px] text-slate-500">(4.2)</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <nav class="space-y-1">
+                    <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block pl-3 mb-2">Duka Langu</span>
+                    <button onclick="switchTab('tab-dashboard')" id="navbtn-tab-dashboard" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold text-slate-400 hover:text-white transition hover:bg-white/[0.01] sidebar-item-active">
+                        <i class="fa-solid fa-chart-pie w-4 text-center text-[#9acd32]"></i> Dashboard
+                    </button>
+                    <button onclick="switchTab('tab-products')" id="navbtn-tab-products" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold text-slate-400 hover:text-white transition hover:bg-white/[0.01]">
+                        <i class="fa-solid fa-store w-4 text-center text-[#9acd32]"></i> Bidhaa Zangu
+                    </button>
+                    <button onclick="switchTab('tab-orders')" id="navbtn-tab-orders" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold text-slate-400 hover:text-white transition hover:bg-white/[0.01]">
+                        <i class="fa-solid fa-truck-fast w-4 text-center text-amber-500"></i> Maagizo
+                    </button>
+                    <button onclick="switchTab('tab-finance')" id="navbtn-tab-finance" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold text-slate-400 hover:text-white transition hover:bg-white/[0.01]">
+                        <i class="fa-solid fa-chart-line w-4 text-center text-purple-400"></i> Hasara & Faida
+                    </button>
+                    <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block pl-3 pt-4 mb-2">Wasifu</span>
+                    <button onclick="switchTab('tab-profile')" id="navbtn-tab-profile" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold text-slate-400 hover:text-white transition hover:bg-white/[0.01]">
+                        <i class="fa-solid fa-id-card w-4 text-center"></i> Wasifu Wangu
+                    </button>
+                    <button onclick="switchTab('tab-support')" id="navbtn-tab-support" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold text-slate-400 hover:text-white transition hover:bg-white/[0.01]">
+                        <i class="fa-solid fa-headset w-4 text-center"></i> Msaidizi
+                    </button>
+                </nav>
+            </div>
+
+            <div class="border-t border-white/5 pt-4 text-[10px] text-slate-600 space-y-1">
+                <div>UID: CF-2026-9812A</div>
+                <div>Server: Dar es Salaam, TZ</div>
+                <div class="flex items-center gap-1">
+                    <span class="text-[8px] text-[#9acd32]">★</span>
+                    <span>CITYFIND Enterprise</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- MAIN CONTENT -->
+        <main class="flex-1 p-6 md:p-8 overflow-y-auto max-h-[calc(100vh-50px)]">
+            <div class="max-w-6xl mx-auto space-y-8">
+
+                <!-- Header -->
+                <div class="bg-gradient-to-r from-[#0b1208] to-[#040702] border border-[#9acd32]/10 rounded-3xl p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-xl relative overflow-hidden">
+                    <div class="absolute -top-12 -right-12 w-48 h-48 bg-[#9acd32]/5 rounded-full blur-3xl pointer-events-none"></div>
+                    <div>
+                        <div class="flex items-center gap-3 mb-2">
+                            <img src="https://files.catbox.moe/6voiyk.png" alt="CITYFIND Logo" class="h-8 w-auto object-contain" />
+                            <span class="text-sm font-black text-white">CITY<span class="text-[#9acd32]">FIND</span></span>
+                            <span class="text-[10px] bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full">★ Seller</span>
+                        </div>
+                        <h2 id="hero-business-name" class="text-3xl font-extrabold text-white tracking-tight">Kikasha cha Wauzaji</h2>
+                        <p id="hero-business-meta" class="text-xs text-slate-400 mt-1 max-w-xl">Dhibiti bidhaa zako, maagizo, na wasifu wako.</p>
+                    </div>
+                    <button onclick="showToast('📝 Profile setup opened')" class="bg-white/5 border border-white/10 hover:border-white/30 text-white font-semibold text-xs px-5 py-3 rounded-xl transition flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-gears text-slate-400"></i> Sanidi Wasifu
+                    </button>
+                </div>
+
+                <!-- TAB: DASHBOARD -->
+                <div id="tab-dashboard" class="tab-content active space-y-8">
+                    <div>
+                        <h3 class="text-xl font-extrabold text-white">Dashboard ya Biashara</h3>
+                        <p class="text-xs text-slate-500">Muhtasari wa shughuli zako.</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div class="bg-white/[0.02] border border-white/5 p-5 rounded-2xl stat-card">
+                            <div class="text-xs text-slate-500 mb-2">Bidhaa Zote</div>
+                            <div id="kpi-products" class="text-2xl font-black text-white font-mono">0</div>
+                            <span class="text-[10px] text-[#9acd32] font-bold"><i class="fa-solid fa-arrow-up mr-1"></i> Zinazopatikana</span>
+                        </div>
+                        <div class="bg-white/[0.02] border border-white/5 p-5 rounded-2xl stat-card">
+                            <div class="text-xs text-slate-500 mb-2">Maagizo</div>
+                            <div id="kpi-orders" class="text-2xl font-black text-white font-mono">0</div>
+                            <span class="text-[10px] text-amber-500 font-bold"><i class="fa-solid fa-clock mr-1"></i> Yanayosubiri</span>
+                        </div>
+                        <div class="bg-white/[0.02] border border-white/5 p-5 rounded-2xl stat-card">
+                            <div class="text-xs text-slate-500 mb-2">Mapato</div>
+                            <div id="kpi-revenue-dash" class="text-2xl font-black text-[#9acd32] font-mono">TZS 0</div>
+                            <span class="text-[10px] text-emerald-400 font-bold"><i class="fa-solid fa-arrow-up mr-1"></i> Jumla</span>
+                        </div>
+                        <div class="bg-[#121c0b] border border-[#9acd32]/20 p-5 rounded-2xl stat-card">
+                            <div class="text-xs text-slate-500 mb-2">Ukadiriaji</div>
+                            <div class="flex items-center gap-1 text-[#fbbf24] text-lg">
+                                <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-regular fa-star"></i>
+                            </div>
+                            <span class="text-[10px] text-slate-400 font-bold">4.2 ★ (12 reviews)</span>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <button onclick="switchTab('tab-products')" class="bg-white/[0.02] border border-white/5 p-4 rounded-2xl hover:border-[#9acd32]/30 transition text-left">
+                            <i class="fa-solid fa-plus-circle text-[#9acd32] text-xl mb-2"></i>
+                            <h4 class="font-bold text-white text-sm">Post Bidhaa Mpya</h4>
+                            <p class="text-xs text-slate-500">Ongeza bidhaa mpya kwenye duka</p>
+                        </button>
+                        <button onclick="switchTab('tab-orders')" class="bg-white/[0.02] border border-white/5 p-4 rounded-2xl hover:border-[#9acd32]/30 transition text-left">
+                            <i class="fa-solid fa-truck text-amber-500 text-xl mb-2"></i>
+                            <h4 class="font-bold text-white text-sm">Angalia Maagizo</h4>
+                            <p class="text-xs text-slate-500">Fuatilia maagizo ya wateja</p>
+                        </button>
+                        <button onclick="switchTab('tab-profile')" class="bg-white/[0.02] border border-white/5 p-4 rounded-2xl hover:border-[#9acd32]/30 transition text-left">
+                            <i class="fa-solid fa-user-edit text-purple-400 text-xl mb-2"></i>
+                            <h4 class="font-bold text-white text-sm">Hariri Wasifu</h4>
+                            <p class="text-xs text-slate-500">Badilisha picha na maelezo</p>
+                        </button>
+                    </div>
+
+                    <div class="bg-white/[0.03] border border-white/5 rounded-2xl p-4">
+                        <h4 class="font-bold text-white text-sm mb-3">Shughuli za Hivi Karibuni</h4>
+                        <div class="space-y-2 text-xs">
+                            <div class="flex items-center justify-between p-2 bg-white/5 rounded">
+                                <span><span class="text-[#9acd32]">John M.</span> listed a new product</span>
+                                <span class="text-slate-500">2 min ago</span>
+                            </div>
+                            <div class="flex items-center justify-between p-2 bg-white/5 rounded">
+                                <span><span class="text-[#9acd32]">Sarah K.</span> placed an order</span>
+                                <span class="text-slate-500">15 min ago</span>
+                            </div>
+                            <div class="flex items-center justify-between p-2 bg-white/5 rounded">
+                                <span><span class="text-[#9acd32]">David R.</span> registered as seller</span>
+                                <span class="text-slate-500">1 hour ago</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB: PRODUCTS -->
+                <div id="tab-products" class="tab-content hidden space-y-8">
+                    <div class="flex justify-between items-center flex-wrap gap-4">
+                        <div>
+                            <h3 class="text-xl font-extrabold text-white">Bidhaa Zangu</h3>
+                            <p class="text-xs text-slate-500">Post, edit na simamia bidhaa zako.</p>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="toggleProductAddModal()" class="bg-[#9acd32] text-[#030602] font-bold px-4 py-2.5 rounded-xl text-xs hover:bg-[#7CB342] transition flex items-center gap-1.5 shadow-md shadow-[#9acd32]/10">
+                                <i class="fa-solid fa-plus"></i> Post Bidhaa
+                            </button>
+                        </div>
+                    </div>
+                    <div id="catalog-products-container" class="grid grid-cols-1 md:grid-cols-3 gap-6"></div>
+                </div>
+
+                <!-- TAB: ORDERS -->
+                <div id="tab-orders" class="tab-content hidden space-y-8">
+                    <div>
+                        <h3 class="text-xl font-extrabold text-white">Usimamizi wa Maagizo</h3>
+                        <p class="text-xs text-slate-500">Fuatilia na usimamie maagizo ya wateja.</p>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div class="bg-slate-950/80 border border-white/5 p-4 rounded-3xl space-y-3">
+                            <div class="flex justify-between items-center text-xs pb-2 border-b border-white/5">
+                                <span class="text-slate-400 font-extrabold tracking-wider uppercase"><i class="fa-solid fa-hourglass-start mr-1.5 text-rose-400"></i> Mapya</span>
+                                <span id="count-pending" class="bg-rose-500/10 text-rose-400 px-2 py-0.5 rounded-md font-bold text-[10px]">0</span>
+                            </div>
+                            <div id="col-pending" class="space-y-3 min-h-[200px]"></div>
+                        </div>
+                        <div class="bg-slate-950/80 border border-white/5 p-4 rounded-3xl space-y-3">
+                            <div class="flex justify-between items-center text-xs pb-2 border-b border-white/5">
+                                <span class="text-slate-400 font-extrabold tracking-wider uppercase"><i class="fa-solid fa-gears mr-1.5 text-blue-400"></i> Maandalizi</span>
+                                <span id="count-processing" class="bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded-md font-bold text-[10px]">0</span>
+                            </div>
+                            <div id="col-processing" class="space-y-3 min-h-[200px]"></div>
+                        </div>
+                        <div class="bg-slate-950/80 border border-white/5 p-4 rounded-3xl space-y-3">
+                            <div class="flex justify-between items-center text-xs pb-2 border-b border-white/5">
+                                <span class="text-slate-400 font-extrabold tracking-wider uppercase"><i class="fa-solid fa-truck-fast mr-1.5 text-amber-500"></i> Safarini</span>
+                                <span id="count-dispatched" class="bg-amber-500/10 text-amber-500 px-2 py-0.5 rounded-md font-bold text-[10px]">0</span>
+                            </div>
+                            <div id="col-dispatched" class="space-y-3 min-h-[200px]"></div>
+                        </div>
+                        <div class="bg-slate-950/80 border border-white/5 p-4 rounded-3xl space-y-3">
+                            <div class="flex justify-between items-center text-xs pb-2 border-b border-white/5">
+                                <span class="text-slate-400 font-extrabold tracking-wider uppercase"><i class="fa-solid fa-circle-check mr-1.5 text-[#9acd32]"></i> Imekamilika</span>
+                                <span id="count-completed" class="bg-[#9acd32]/10 text-[#9acd32] px-2 py-0.5 rounded-md font-bold text-[10px]">0</span>
+                            </div>
+                            <div id="col-completed" class="space-y-3 min-h-[200px]"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB: FINANCE -->
+                <div id="tab-finance" class="tab-content hidden space-y-8">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <h3 class="text-xl font-extrabold text-white">Hasara & Faida</h3>
+                            <p class="text-xs text-slate-500">Uchambuzi wa mapato na gharama.</p>
+                        </div>
+                        <button onclick="showToast('💰 Transaction modal opened')" class="bg-[#9acd32] text-[#030602] font-bold px-4 py-2 rounded-xl text-xs hover:bg-[#7CB342] transition flex items-center gap-1.5">
+                            <i class="fa-solid fa-plus"></i> Weka Muamala
+                        </button>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div class="bg-white/[0.02] border border-white/5 p-5 rounded-2xl">
+                            <div class="text-xs text-slate-500 mb-2">Mapato</div>
+                            <div id="kpi-revenue" class="text-2xl font-black text-white font-mono">TZS 0</div>
+                        </div>
+                        <div class="bg-white/[0.02] border border-white/5 p-5 rounded-2xl">
+                            <div class="text-xs text-slate-500 mb-2">Gharama</div>
+                            <div id="kpi-expenses" class="text-2xl font-black text-slate-300 font-mono">TZS 0</div>
+                        </div>
+                        <div class="bg-white/[0.02] border border-white/5 p-5 rounded-2xl">
+                            <div class="text-xs text-slate-500 mb-2">Faida Halisi</div>
+                            <div id="kpi-net" class="text-2xl font-black text-[#9acd32] font-mono">TZS 0</div>
+                        </div>
+                        <div class="bg-[#121c0b] border border-[#9acd32]/20 p-5 rounded-2xl">
+                            <div class="text-xs text-[#9acd32] font-bold uppercase mb-2">Margin</div>
+                            <div id="kpi-margin-pct" class="text-2xl font-black text-white font-mono">0%</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB: PROFILE -->
+                <div id="tab-profile" class="tab-content hidden space-y-8">
+                    <div>
+                        <h3 class="text-xl font-extrabold text-white">Wasifu Wangu</h3>
+                        <p class="text-xs text-slate-500">Hariri picha, jina na maelezo yako.</p>
+                    </div>
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        <div class="lg:col-span-1 bg-[#060a03] border border-white/5 p-6 rounded-3xl space-y-6">
+                            <h4 class="text-sm font-extrabold text-[#9acd32] uppercase tracking-wider">Maelezo</h4>
+                            <div class="space-y-2">
+                                <label class="text-xs font-semibold text-slate-300 block">Jina la Biashara</label>
+                                <input id="profile-name-input" type="text" value="My Store" class="w-full bg-slate-900 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#9acd32]">
+                            </div>
+                            <div class="space-y-2">
+                                <label class="text-xs font-semibold text-slate-300 block">URL ya Picha</label>
+                                <input id="profile-avatar-input" type="text" placeholder="Weka kiungo cha picha" class="w-full bg-slate-900 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#9acd32]">
+                            </div>
+                            <div class="space-y-2">
+                                <label class="text-xs font-semibold text-slate-300 block">Kaulimbiu</label>
+                                <input id="profile-slogan-input" type="text" value="Premium products delivered instantly." class="w-full bg-slate-900 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#9acd32]">
+                            </div>
+                            <div class="space-y-2">
+                                <label class="text-xs font-semibold text-slate-300 block">Simu</label>
+                                <input id="profile-phone-input" type="text" value="+255 712 000 000" class="w-full bg-slate-900 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#9acd32]">
+                            </div>
+                            <div class="space-y-2">
+                                <label class="text-xs font-semibold text-slate-300 block">WhatsApp</label>
+                                <input id="profile-whatsapp-input" type="text" value="+255 712 000 000" class="w-full bg-slate-900 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#9acd32]">
+                            </div>
+                            <button onclick="updateProfile()" class="w-full bg-[#9acd32] text-[#030602] font-bold py-2 rounded-xl text-xs hover:bg-[#7CB342] transition">Hifadhi Wasifu</button>
+                        </div>
+
+                        <div class="lg:col-span-2 space-y-4">
+                            <span class="text-xs font-bold text-slate-500 uppercase tracking-widest block"><i class="fa-solid fa-display mr-1.5"></i>Muonekano</span>
+                            <div id="profile-preview-card" class="bg-slate-900 border border-white/10 rounded-[35px] overflow-hidden shadow-2xl">
+                                <div class="h-32 bg-gradient-to-r from-[#111e0c] to-[#040702] p-6 relative flex items-end border-b border-white/5">
+                                    <span class="absolute top-4 right-4 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[9px] font-bold uppercase px-2.5 py-1 rounded-full"><i class="fa-solid fa-circle mr-1.5 text-[8px] text-emerald-500"></i>Online</span>
+                                    <div class="w-16 h-16 rounded-2xl bg-[#9acd32] text-[#030602] flex items-center justify-center text-2xl font-black shadow-lg translate-y-8 z-10 border-4 border-slate-900 overflow-hidden">
+                                        <img id="preview-avatar-img" src="" alt="" class="w-full h-full object-cover hidden">
+                                        <i id="preview-avatar-icon" class="fa-solid fa-store"></i>
+                                    </div>
+                                </div>
+                                <div class="pt-10 p-6 md:p-8 space-y-4">
+                                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
+                                        <div>
+                                            <h4 id="preview-name" class="text-xl font-bold text-white">My Store</h4>
+                                            <p id="preview-category" class="text-xs text-slate-400">Seller</p>
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <div class="flex text-amber-500 text-xs">
+                                                <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-regular fa-star"></i>
+                                            </div>
+                                            <span class="text-[10px] text-slate-500">(4.2)</span>
+                                        </div>
+                                    </div>
+                                    <blockquote id="preview-slogan" class="text-xs italic text-slate-400 bg-white/[0.01] border-l-2 border-[#9acd32] pl-3 py-1">
+                                        "Premium products delivered instantly."
+                                    </blockquote>
+                                    <div class="grid grid-cols-2 md:grid-cols-3 gap-4 text-xs pt-4 border-t border-white/5 text-slate-400">
+                                        <div>
+                                            <span class="text-[10px] text-slate-500 uppercase tracking-widest block mb-0.5">Eneo</span>
+                                            <span id="preview-location" class="font-bold text-white"><i class="fa-solid fa-map-pin mr-1.5 text-[#9acd32]"></i>Dar es Salaam, TZ</span>
+                                        </div>
+                                        <div>
+                                            <span class="text-[10px] text-slate-500 uppercase tracking-widest block mb-0.5">Simu</span>
+                                            <span id="preview-phone" class="font-bold text-white"><i class="fa-solid fa-phone mr-1.5 text-[#9acd32]"></i>+255 712 000 000</span>
+                                        </div>
+                                        <div>
+                                            <span class="text-[10px] text-slate-500 uppercase tracking-widest block mb-0.5">WhatsApp</span>
+                                            <span id="preview-whatsapp" class="font-bold text-white"><i class="fa-brands fa-whatsapp mr-1.5 text-[#25D366]"></i>+255 712 000 000</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB: SUPPORT -->
+                <div id="tab-support" class="tab-content hidden space-y-8">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <h3 class="text-xl font-extrabold text-white">Msaidizi wa Wateja</h3>
+                            <p class="text-xs text-slate-500">Mawasiliano ya moja kwa moja na wateja.</p>
+                        </div>
+                        <span class="bg-emerald-500/15 text-emerald-400 text-[10px] font-bold px-3 py-1 rounded-full uppercase border border-emerald-500/25">
+                            <i class="fa-solid fa-robot mr-1.5"></i>Online
+                        </span>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        <div class="bg-[#060a03] border border-white/5 p-6 rounded-3xl space-y-6 lg:col-span-1">
+                            <h4 class="text-sm font-extrabold text-purple-400 uppercase tracking-wider flex items-center gap-1.5">
+                                <i class="fa-solid fa-wand-magic-sparkles"></i> Msaidizi wa AI
+                            </h4>
+                            <p class="text-xs text-slate-400 leading-relaxed">
+                                AI inasoma maelezo ya katalogi yako ya bidhaa, picha ya duka, masaa ya kazi na eneo lako.
+                            </p>
+                            <div class="space-y-2">
+                                <label class="text-xs font-semibold text-slate-300 block">Wasiliana Nasi</label>
+                                <div class="grid grid-cols-2 gap-2">
+                                    <button onclick="showToast('📹 Video call initiated...')" class="bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 font-bold py-2 rounded-xl text-xs transition flex items-center justify-center gap-1">
+                                        <i class="fa-solid fa-video"></i> Video
+                                    </button>
+                                    <button onclick="showToast('🎤 Voice call initiated...')" class="bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 font-bold py-2 rounded-xl text-xs transition flex items-center justify-center gap-1">
+                                        <i class="fa-solid fa-phone"></i> Voice
+                                    </button>
+                                    <button onclick="showToast('💬 WhatsApp chat opened...')" class="bg-green-500/20 hover:bg-green-500/30 text-green-400 font-bold py-2 rounded-xl text-xs transition flex items-center justify-center gap-1">
+                                        <i class="fa-brands fa-whatsapp"></i> WhatsApp
+                                    </button>
+                                    <button onclick="showToast('📧 Email sent...')" class="bg-red-500/20 hover:bg-red-500/30 text-red-400 font-bold py-2 rounded-xl text-xs transition flex items-center justify-center gap-1">
+                                        <i class="fa-solid fa-envelope"></i> Email
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="lg:col-span-2 space-y-4">
+                            <span class="text-xs font-bold text-slate-500 uppercase tracking-widest block"><i class="fa-solid fa-terminal mr-1.5"></i>Chat Simulator</span>
+                            <div class="bg-slate-900 border border-white/10 rounded-[35px] overflow-hidden flex flex-col h-[450px]">
+                                <div class="bg-black/40 border-b border-white/5 p-4 flex justify-between items-center">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></div>
+                                        <div class="text-xs font-bold text-white">Chatbot <span class="text-slate-400">· Gemini AI</span></div>
+                                    </div>
+                                    <button onclick="resetSimulator()" class="text-slate-500 hover:text-white transition text-[10px] uppercase font-bold">
+                                        <i class="fa-solid fa-arrows-rotate mr-1"></i> Safisha
+                                    </button>
+                                </div>
+                                <div id="helpdesk-messages-box" class="flex-1 overflow-y-auto p-6 space-y-4 text-xs"></div>
+                                <div class="p-4 bg-black/20 border-t border-white/5 flex gap-2">
+                                    <input id="helpdesk-input" placeholder="Andika swali lako hapa..." class="flex-1 bg-slate-950 border border-white/10 rounded-xl px-4 py-2 text-xs text-white focus:outline-none focus:border-[#9acd32]">
+                                    <button onclick="sendHelpdeskMessage()" class="bg-[#9acd32] text-[#030602] font-bold px-4 py-2 rounded-xl text-xs hover:bg-[#7CB342] transition">
+                                        <i class="fa-solid fa-paper-plane"></i> Tuma
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- PRODUCT ADD MODAL -->
+    <div id="product-add-modal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm hidden items-center justify-center p-4">
+        <div class="bg-slate-900 border border-white/10 rounded-[30px] max-w-md w-full p-6 space-y-4 shadow-2xl">
+            <h3 class="text-sm font-bold text-white uppercase tracking-wider"><i class="fa-solid fa-plus text-[#9acd32] mr-2"></i> Post Bidhaa Mpya</h3>
+            <div class="space-y-3 text-xs">
+                <div class="space-y-1">
+                    <label class="text-slate-400 font-semibold block">Jina la Bidhaa</label>
+                    <input id="prod-name" type="text" placeholder="e.g. Laptop Pro" class="w-full bg-slate-950 border border-white/10 rounded-xl p-2.5 text-white focus:outline-none focus:border-[#9acd32]">
+                </div>
+                <div class="space-y-1">
+                    <label class="text-slate-400 font-semibold block">Maelezo</label>
+                    <input id="prod-desc" type="text" placeholder="e.g. 16GB RAM" class="w-full bg-slate-950 border border-white/10 rounded-xl p-2.5 text-white focus:outline-none focus:border-[#9acd32]">
+                </div>
+                <div class="space-y-1">
+                    <label class="text-slate-400 font-semibold block">Image URL</label>
+                    <input id="prod-image-url" type="text" placeholder="https://images.unsplash.com/photo-..." class="w-full bg-slate-950 border border-white/10 rounded-xl p-2.5 text-white focus:outline-none focus:border-[#9acd32]">
+                </div>
+                <div class="space-y-1">
+                    <label class="text-slate-400 font-semibold block">Price (TZS)</label>
+                    <input id="prod-price" type="number" placeholder="Bei" class="w-full bg-slate-950 border border-white/10 rounded-xl p-2.5 text-white focus:outline-none focus:border-[#9acd32]">
+                </div>
+                <div class="space-y-1">
+                    <label class="text-slate-400 font-semibold block">Stock</label>
+                    <select id="prod-stock" class="w-full bg-slate-950 border border-white/10 rounded-xl p-2.5 text-white focus:outline-none focus:border-[#9acd32]">
+                        <option value="In Stock">In Stock</option>
+                        <option value="Out of Stock">Out of Stock</option>
+                    </select>
+                </div>
+                <div class="space-y-1">
+                    <label class="text-slate-400 font-semibold block">WhatsApp</label>
+                    <input id="prod-whatsapp" type="text" placeholder="+255 712 000 000" class="w-full bg-slate-950 border border-white/10 rounded-xl p-2.5 text-white focus:outline-none focus:border-[#9acd32]">
+                </div>
+            </div>
+            <div class="flex gap-2 pt-2">
+                <button onclick="toggleProductAddModal()" class="flex-1 bg-white/5 hover:bg-white/10 text-white font-bold py-2.5 rounded-xl text-xs transition">Ghairi</button>
+                <button onclick="saveCatalogProduct()" class="flex-1 bg-[#9acd32] text-[#030602] font-black py-2.5 rounded-xl text-xs transition">Hifadhi</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOAST -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <script>
+        // ============================================================
+        // DATA
+        // ============================================================
+        let products = [];
+        let orders = [
+            { id: 101, client: "Fatuma Ramadhani", item: "Tuition Block", amount: 3200000, date: "Jun 21, 2026", status: "pending" },
+            { id: 102, client: "Juma Hamisi", item: "Science Lab Kit", amount: 450000, date: "Jun 20, 2026", status: "processing" }
+        ];
+        let transactions = [];
+        let helpdeskChatLog = [];
+
+        // ============================================================
+        // TAB SWITCHER
+        // ============================================================
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            document.querySelectorAll('aside nav button').forEach(btn => btn.classList.remove('sidebar-item-active'));
+            const activeBtn = document.getElementById(`navbtn-${tabId}`);
+            if (activeBtn) activeBtn.classList.add('sidebar-item-active');
+            renderAll();
+        }
+
+        // ============================================================
+        // RENDER ALL
+        // ============================================================
+        function renderAll() {
+            renderDashboard();
+            renderCatalog();
+            renderDispatchBoard();
+            renderLossProfit();
+        }
+
+        // ============================================================
+        // DASHBOARD
+        // ============================================================
+        function renderDashboard() {
+            const totalRev = transactions.filter(t => t.type === 'revenue').reduce((a, t) => a + t.amount, 0);
+            document.getElementById('kpi-products').textContent = products.length;
+            document.getElementById('kpi-orders').textContent = orders.length;
+            document.getElementById('kpi-revenue-dash').textContent = `TZS ${totalRev.toLocaleString()}`;
+        }
+
+        // ============================================================
+        // CATALOG
+        // ============================================================
+        function renderCatalog() {
+            const container = document.getElementById('catalog-products-container');
+            if (!container) return;
+            container.innerHTML = "";
+            if (products.length === 0) {
+                container.innerHTML = `<div class="col-span-full text-center py-12 text-xs border border-white/5 rounded-3xl bg-white/[0.01]">
+                    <i class="fa-solid fa-boxes-stacked text-3xl text-slate-700 mb-3 block"></i>
+                    <span class="text-slate-400 font-bold block">Hakuna Bidhaa</span>
+                    <button onclick="toggleProductAddModal()" class="mt-2 bg-[#9acd32] text-[#030602] font-bold px-4 py-2 rounded-xl text-xs">Post Bidhaa</button>
+                </div>`;
+                return;
+            }
+            products.forEach(p => {
+                const card = document.createElement('div');
+                const outOfStock = p.stock === "Out of Stock";
+                const badgeColor = outOfStock ? "bg-rose-500/10 text-rose-400" : "bg-emerald-500/10 text-emerald-400";
+                card.className = "bg-[#060a03] border border-white/5 rounded-3xl p-5 hover:border-[#9acd32]/35 transition text-left flex flex-col justify-between space-y-4 product-card";
+                const prodImg = p.img || 'https://images.unsplash.com/photo-1546410531-bb4caa6b424d?auto=format&fit=crop&w=400&q=80';
+                card.innerHTML = `
+                    <div class="space-y-3">
+                        <div class="w-full h-32 rounded-xl bg-slate-950 overflow-hidden relative border border-white/5">
+                            <img src="${prodImg}" alt="" class="w-full h-full object-cover">
+                            <span class="absolute bottom-2 right-2 text-[9px] bg-black/60 px-2 py-0.5 rounded-full text-slate-300 font-mono">TZS ${p.price.toLocaleString()}</span>
+                        </div>
+                        <div class="space-y-1">
+                            <h4 class="text-sm font-bold text-white">${p.name}</h4>
+                            <p class="text-[11px] text-slate-400">${p.desc}</p>
+                            ${p.whatsapp ? `<span class="text-[9px] text-green-400"><i class="fa-brands fa-whatsapp mr-1"></i> ${p.whatsapp}</span>` : ''}
+                        </div>
+                    </div>
+                    <div class="flex justify-between items-center pt-3 border-t border-white/5 text-[10px]">
+                        <span class="border px-2 py-0.5 rounded-full uppercase font-bold text-[8px] ${badgeColor}">${p.stock}</span>
+                        <button onclick="deleteCatalogProduct(${p.id})" class="text-slate-600 hover:text-rose-500 transition">
+                            <i class="fa-solid fa-trash-can mr-1"></i> Delete
+                        </button>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function toggleProductAddModal() {
+            const modal = document.getElementById('product-add-modal');
+            modal.classList.toggle('hidden');
+            modal.classList.toggle('flex');
+        }
+
+        function saveCatalogProduct() {
+            const name = document.getElementById('prod-name').value.trim();
+            const desc = document.getElementById('prod-desc').value.trim();
+            const imageInput = document.getElementById('prod-image-url').value.trim();
+            const price = parseFloat(document.getElementById('prod-price').value);
+            const stock = document.getElementById('prod-stock').value;
+            const whatsapp = document.getElementById('prod-whatsapp').value.trim() || "+255 712 000 000";
+            if (!name || !desc || isNaN(price) || price <= 0) {
+                showToast("Tafadhali jaza taarifa zote.");
+                return;
+            }
+            products.push({
+                id: Date.now(),
+                name, desc, price, stock,
+                img: imageInput || "https://images.unsplash.com/photo-1546410531-bb4caa6b424d?auto=format&fit=crop&w=400&q=80",
+                whatsapp: whatsapp
+            });
+            renderAll();
+            toggleProductAddModal();
+            showToast("✅ Bidhaa imepostiwa!");
+        }
+
+        function deleteCatalogProduct(id) {
+            products = products.filter(p => p.id !== id);
+            renderAll();
+            showToast("🗑️ Bidhaa imefutwa.");
+        }
+
+        // ============================================================
+        // ORDERS
+        // ============================================================
+        function renderDispatchBoard() {
+            const cols = {
+                pending: document.getElementById('col-pending'),
+                processing: document.getElementById('col-processing'),
+                dispatched: document.getElementById('col-dispatched'),
+                completed: document.getElementById('col-completed')
+            };
+            Object.values(cols).forEach(col => { if(col) col.innerHTML = ""; });
+            let counts = { pending: 0, processing: 0, dispatched: 0, completed: 0 };
+            orders.forEach(order => {
+                counts[order.status]++;
+                const card = document.createElement('div');
+                card.className = "bg-white/[0.02] border border-white/5 p-4 rounded-2xl hover:border-[#9acd32]/30 transition space-y-3 text-xs";
+                let actionBtn = "";
+                if (order.status === "pending") {
+                    actionBtn = `<button onclick="transitionOrder(${order.id}, 'processing')" class="w-full bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 font-bold py-1.5 rounded-lg text-[10px] transition"><i class="fa-solid fa-gears mr-1"></i> Process</button>`;
+                } else if (order.status === "processing") {
+                    actionBtn = `<button onclick="transitionOrder(${order.id}, 'dispatched')" class="w-full bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 font-bold py-1.5 rounded-lg text-[10px] transition"><i class="fa-solid fa-truck-fast mr-1"></i> Dispatch</button>`;
+                } else if (order.status === "dispatched") {
+                    actionBtn = `<button onclick="transitionOrder(${order.id}, 'completed')" class="w-full bg-[#9acd32]/10 hover:bg-[#9acd32]/20 text-[#9acd32] font-bold py-1.5 rounded-lg text-[10px] transition"><i class="fa-solid fa-check mr-1"></i> Deliver</button>`;
+                } else {
+                    actionBtn = `<span class="block text-center text-emerald-400 font-bold text-[10px]"><i class="fa-solid fa-check-circle mr-1"></i> Completed</span>`;
+                }
+                card.innerHTML = `
+                    <div class="flex justify-between">
+                        <div><span class="text-[9px] text-slate-500">#${order.id}</span><h4 class="font-bold text-white">${order.client}</h4></div>
+                        <span class="font-mono font-bold text-[10px]">TZS ${order.amount.toLocaleString()}</span>
+                    </div>
+                    <div class="text-[10px] text-slate-400"><i class="fa-solid fa-box-open mr-1"></i> ${order.item}</div>
+                    <div class="flex justify-between text-[9px] text-slate-600">
+                        <span>${order.date}</span>
+                        <button onclick="deleteOrder(${order.id})" class="text-slate-600 hover:text-rose-500"><i class="fa-solid fa-trash-can"></i></button>
+                    </div>
+                    ${actionBtn}
+                `;
+                if (cols[order.status]) cols[order.status].appendChild(card);
+            });
+            Object.keys(counts).forEach(status => {
+                const el = document.getElementById(`count-${status}`);
+                if (el) el.textContent = counts[status];
+            });
+        }
+
+        function transitionOrder(orderId, nextStatus) {
+            orders = orders.map(o => { if (o.id === orderId) o.status = nextStatus; return o; });
+            renderDispatchBoard();
+            showToast(`✅ Order #${orderId} updated`);
+        }
+
+        function deleteOrder(id) {
+            orders = orders.filter(o => o.id !== id);
+            renderDispatchBoard();
+            showToast("🗑️ Order deleted.");
+        }
+
+        // ============================================================
+        // FINANCE
+        // ============================================================
+        function renderLossProfit() {
+            let totalRev = 0, totalExp = 0;
+            transactions.forEach(tx => {
+                if (tx.type === 'revenue') totalRev += tx.amount;
+                else totalExp += tx.amount;
+            });
+            const netValue = totalRev - totalExp;
+            const marginPct = totalRev > 0 ? Math.round((netValue / totalRev) * 100) : 0;
+            document.getElementById('kpi-revenue').textContent = `TZS ${totalRev.toLocaleString()}`;
+            document.getElementById('kpi-expenses').textContent = `TZS ${totalExp.toLocaleString()}`;
+            const kpiNet = document.getElementById('kpi-net');
+            if (netValue >= 0) {
+                kpiNet.textContent = `TZS ${netValue.toLocaleString()}`;
+                kpiNet.className = "text-2xl font-black text-[#9acd32] font-mono";
+            } else {
+                kpiNet.textContent = `- TZS ${Math.abs(netValue).toLocaleString()}`;
+                kpiNet.className = "text-2xl font-black text-rose-500 font-mono";
+            }
+            document.getElementById('kpi-margin-pct').textContent = `${marginPct}%`;
+        }
+
+        // ============================================================
+        // PROFILE
+        // ============================================================
+        function updateProfile() {
+            const name = document.getElementById('profile-name-input').value.trim();
+            const avatar = document.getElementById('profile-avatar-input').value.trim();
+            const slogan = document.getElementById('profile-slogan-input').value.trim();
+            const phone = document.getElementById('profile-phone-input').value.trim();
+            const whatsapp = document.getElementById('profile-whatsapp-input').value.trim();
+            
+            document.getElementById('preview-name').textContent = name || "My Store";
+            document.getElementById('nav-business-name').textContent = name || "My Store";
+            document.getElementById('hero-business-name').textContent = name || "My Store";
+            document.getElementById('preview-slogan').textContent = `"${slogan || 'Premium products.'}"`;
+            document.getElementById('preview-phone').innerHTML = `<i class="fa-solid fa-phone mr-1.5 text-[#9acd32]"></i>${phone || '+255 712 000 000'}`;
+            document.getElementById('preview-whatsapp').innerHTML = `<i class="fa-brands fa-whatsapp mr-1.5 text-[#25D366]"></i>${whatsapp || '+255 712 000 000'}`;
+            
+            if (avatar) {
+                const img = document.getElementById('preview-avatar-img');
+                img.src = avatar;
+                img.classList.remove('hidden');
+                document.getElementById('preview-avatar-icon').classList.add('hidden');
+            }
+            showToast("✅ Wasifu umehifadhiwa!");
+        }
+
+        // ============================================================
+        // HELP DESK
+        // ============================================================
+        function resetSimulator() {
+            helpdeskChatLog = [{ sender: "agent", text: "Karibu kwenye msaada. Nawezaje kukusaidia?" }];
+            renderSimulatorMessages();
+        }
+
+        function renderSimulatorMessages() {
+            const box = document.getElementById('helpdesk-messages-box');
+            if (!box) return;
+            box.innerHTML = "";
+            helpdeskChatLog.forEach(m => {
+                const wrapper = document.createElement('div');
+                wrapper.className = m.sender === "agent" ? "flex justify-start text-left text-xs" : "flex justify-end text-left text-xs";
+                const bubble = document.createElement('div');
+                bubble.className = m.sender === "agent"
+                    ? "bg-[#121c0b] border border-[#9acd32]/10 rounded-2xl p-3.5 max-w-[85%] text-slate-100"
+                    : "bg-slate-800 rounded-2xl p-3.5 max-w-[85%] text-white";
+                bubble.innerHTML = `
+                    <span class="text-[9px] uppercase font-bold text-[#9acd32] block mb-1">${m.sender === 'agent' ? 'Msaidizi' : 'Mteja'}</span>
+                    <p class="leading-relaxed font-medium">${m.text}</p>
+                `;
+                wrapper.appendChild(bubble);
+                box.appendChild(wrapper);
+            });
+            box.scrollTop = box.scrollHeight;
+        }
+
+        function sendHelpdeskMessage() {
+            const input = document.getElementById('helpdesk-input');
+            const prompt = input.value.trim();
+            if (!prompt) return;
+            helpdeskChatLog.push({ sender: "customer", text: prompt });
+            renderSimulatorMessages();
+            input.value = "";
+            
+            setTimeout(() => {
+                const responses = [
+                    "Asante kwa swali lako! Tutakusaidia.",
+                    "Nakuelewa. Hebu nikupe maelezo zaidi.",
+                    "Hiyo ni swali zuri! Natafuta jibu.",
+                    "Tunaweza kukusaidia na hilo. Subiri kidogo.",
+                    "Ndiyo, bidhaa hiyo inapatikana kwa bei nzuri."
+                ];
+                const reply = responses[Math.floor(Math.random() * responses.length)];
+                helpdeskChatLog.push({ sender: "agent", text: reply });
+                renderSimulatorMessages();
+            }, 1000);
+        }
+
+        // ============================================================
+        // TOAST
+        // ============================================================
+        function showToast(message) {
+            const container = document.getElementById('toastContainer');
+            if (!container) return;
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.innerHTML = `<span>${message}</span><button onclick="this.parentElement.remove()"><i class="fa-solid fa-xmark"></i></button>`;
+            container.appendChild(toast);
+            setTimeout(() => {
+                if (toast.parentElement) {
+                    toast.classList.add('toast-exit');
+                    setTimeout(() => toast.remove(), 300);
+                }
+            }, 4500);
+        }
+
+        // ============================================================
+        // INIT
+        // ============================================================
+        document.addEventListener('DOMContentLoaded', function() {
+            resetSimulator();
+            renderAll();
+            console.log('✅ CITYFIND Seller Dashboard');
+            console.log('📌 Features: Products, Orders, Finance, Profile, Support');
+            console.log('🏪 Welcome Seller! Start selling now.');
+            setTimeout(() => showToast('🏪 Welcome to CITYFIND Seller! Start selling now.'), 1000);
+        });
+    </script>
+
+</body>
+</html>
